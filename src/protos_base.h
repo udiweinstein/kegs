@@ -893,4 +893,6 @@ void voc_reset(void);
 word32 voc_read_reg0(dword64 dfcyc);
 void voc_update_interlace(dword64 dfcyc);
 
-
+/* basic_ext.c (UDI) */
+void basic_shr_set(int on);
+void basic_let_trap(void);

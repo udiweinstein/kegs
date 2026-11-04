@@ -1273,8 +1273,7 @@ config_load_roms()
 
 	}
 
-	// UDI: Add new Applesoft commands (see do_basic_let_trap() in
-	//  sim65816.c).  Applesoft LET is at $DA46 = JSR PTRGET (20 e3 df).
+	// UDI: Add new Applesoft commands (see basic_ext.c).  Applesoft LET is at $DA46 = JSR PTRGET (20 e3 df).
 	//  Unknown words like VER end up in LET, so replace that JSR with
 	//  WDM $56,$00 (42 56 00) and let the emulator check the statement.
 	if((g_rom_fc_ff_ptr[0x3da46] == 0x20) &&
