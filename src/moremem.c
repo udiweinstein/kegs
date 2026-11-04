@@ -1201,9 +1201,7 @@ io_read(word32 loc, dword64 *cyc_ptr)
 			return val;
 		case 0x51: /* 0xc051 */
 			val = float_bus(dfcyc);
-			if(g_basic_shr_on) {	// UDI: TEXT ends SHGR
-				basic_shr_set(0);
-			}
+			basic_text_hook();	// UDI: TEXT ends SHGR/DHGR
 			if((g_cur_a2_stat & ALL_STAT_TEXT) == 0) {
 				g_cur_a2_stat |= (ALL_STAT_TEXT);
 				change_display_mode(dfcyc);
@@ -1824,9 +1822,7 @@ io_write(word32 loc, word32 val, dword64 *cyc_ptr)
 			}
 			return;
 		case 0x51: /* 0xc051 */
-			if(g_basic_shr_on) {	// UDI: TEXT ends SHGR
-				basic_shr_set(0);
-			}
+			basic_text_hook();	// UDI: TEXT ends SHGR/DHGR
 			if((g_cur_a2_stat & ALL_STAT_TEXT) == 0) {
 				g_cur_a2_stat |= (ALL_STAT_TEXT);
 				change_display_mode(dfcyc);

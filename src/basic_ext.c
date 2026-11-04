@@ -11,6 +11,7 @@
 //
 // Applesoft tokenizes keywords anywhere in a word, so "SHGR" is stored as
 //  'S' + token HGR, "SHPLOT" as 'S' + HPLOT, "SHCOLOR=" as 'S' + HCOLOR=.
+//  Same for "DHGR", "DHPLOT", "DHCOLOR=" with 'D'.
 //
 // Commands:
 //  VER                       print the version
@@ -18,7 +19,10 @@
 //  SHCOLOR= n                color 0-15
 //  SHPLOT x,y [TO x,y ...]   x 0-319, y 0-199
 //  SHPLOT TO x,y [TO ...]    continue from the last point
-//  TEXT                      (Applesoft's own) also turns Super Hi-Res off
+//  DHGR                      Double Hi-Res 140x192 16 colors on (page 1), clear
+//  DHCOLOR= n                color 0-15 (Lo-Res color numbers)
+//  DHPLOT x,y [TO x,y ...]   x 0-139, y 0-191 (also DHPLOT TO x,y)
+//  TEXT                      (Applesoft's own) also turns SHR / DHR off
 
 #include "defc.h"
 #include <math.h>
@@ -55,6 +59,14 @@ static const word32 g_bx_palette[16] = {
 };
 
 int	g_basic_shr_on = 0;		// SHR was turned on by SHGR
+int	g_basic_dhr_on = 0;		// DHR was turned on by DHGR
+static int	g_bx_dhr_saved_vid80 = 0;	// 80-col video before DHGR
+
+enum { BX_MODE_SHR = 0, BX_MODE_DHR };
+static int	g_bx_mode = BX_MODE_SHR;	// Which SH/DH command is running
+static const int g_bx_max_x[2] = { 320, 140 };
+static const int g_bx_max_y[2] = { 200, 192 };
+static int	g_bx_colors[2] = { 15, 15 };	// SHCOLOR, DHCOLOR
 
 static int	g_bx_state = BX_IDLE;
 static word32	g_bx_wait_stack = 0;	// Stack ptr when our ROM call returns
@@ -63,7 +75,6 @@ static int	g_bx_plot_line = 0;	// Draw a line from the last point
 static int	g_bx_plot_x = 0;
 static int	g_bx_last_x = 0;
 static int	g_bx_last_y = 0;
-static int	g_bx_color = 15;
 
 // ---- 6502 helpers ----
 
@@ -232,22 +243,109 @@ bx_shgr()
 	for(i = 0; i < 200*160; i++) {
 		set_memory_c(SHR_PIXELS + i, 0x00, 0);
 	}
+	basic_text_hook();		// Undo DHGR if it is on
 	basic_shr_set(1);
 }
 
 static void
-bx_pixel(int x, int y)
+bx_shr_pixel(int x, int y, int color)
 {
 	word32	addr, val;
 
 	addr = SHR_PIXELS + y*160 + (x >> 1);
 	val = get_memory_c(addr);
 	if(x & 1) {
-		val = (val & 0xf0) | g_bx_color;
+		val = (val & 0xf0) | color;
 	} else {
-		val = (val & 0x0f) | (g_bx_color << 4);
+		val = (val & 0x0f) | (color << 4);
 	}
 	set_memory_c(addr, val, 0);
+}
+
+// ---- Double Hi-Res ----
+// Each line is 80 bytes, alternating aux ($E1) and main ($E0): aux0, main0,
+//  aux1, main1...  Only bits 0-6 are shown, so a line is 560 bits.  Pixel
+//  x (0-139) is bits 4x..4x+3, first bit = color bit 0.
+
+#define DHR_MAIN	0xe02000
+#define DHR_AUX		0xe12000
+
+static word32
+bx_hgr_line_offset(int y)
+{
+	return ((y & 7) << 10) | (((y >> 3) & 7) << 7) | ((y >> 6) * 40);
+}
+
+static void
+bx_dhr_pixel(int x, int y, int color)
+{
+	word32	line, addr, val;
+	int	i, bitpos, byte_idx, bit;
+
+	line = bx_hgr_line_offset(y);
+	for(i = 0; i < 4; i++) {
+		bitpos = 4*x + i;
+		byte_idx = bitpos / 7;
+		bit = bitpos % 7;
+		addr = ((byte_idx & 1) ? DHR_MAIN : DHR_AUX) + line +
+							(byte_idx >> 1);
+		val = get_memory_c(addr);
+		if((color >> i) & 1) {
+			val |= (1 << bit);
+		} else {
+			val &= ~(1 << bit);
+		}
+		set_memory_c(addr, val, 0);
+	}
+}
+
+static void
+bx_dhgr()
+{
+	int	i;
+
+	for(i = 0; i < 0x2000; i++) {
+		set_memory_c(DHR_MAIN + i, 0x00, 0);
+		set_memory_c(DHR_AUX + i, 0x00, 0);
+	}
+	basic_shr_set(0);
+	if(!g_basic_dhr_on) {
+		g_bx_dhr_saved_vid80 = (g_cur_a2_stat & ALL_STAT_VID80) != 0;
+	}
+	g_basic_dhr_on = 1;
+	set_memory_c(0xc050, 0, 1);		// Graphics
+	set_memory_c(0xc052, 0, 1);		// Full screen
+	set_memory_c(0xc054, 0, 1);		// Page 1
+	set_memory_c(0xc057, 0, 1);		// Hi-Res
+	set_memory_c(0xc00d, 0, 1);		// 80-col video on
+	set_memory_c(0xc05e, 0, 1);		// AN3 off: Double Hi-Res on
+}
+
+// TEXT ($C051) was accessed: undo SHGR / DHGR
+void
+basic_text_hook()
+{
+	if(g_basic_shr_on) {
+		basic_shr_set(0);
+	}
+	if(g_basic_dhr_on) {
+		g_basic_dhr_on = 0;
+		g_cur_a2_stat |= ALL_STAT_ANNUNC3;	// DHR off
+		if(!g_bx_dhr_saved_vid80) {
+			g_cur_a2_stat &= (~ALL_STAT_VID80);
+		}
+		change_display_mode(g_cur_dfcyc);
+	}
+}
+
+static void
+bx_pixel(int x, int y)
+{
+	if(g_bx_mode == BX_MODE_DHR) {
+		bx_dhr_pixel(x, y, g_bx_colors[BX_MODE_DHR]);
+	} else {
+		bx_shr_pixel(x, y, g_bx_colors[BX_MODE_SHR]);
+	}
 }
 
 static void
@@ -308,11 +406,11 @@ bx_continue()
 			bx_error(BX_IQERR);
 			return;
 		}
-		g_bx_color = val;
+		g_bx_colors[g_bx_mode] = val;
 		bx_end_statement();
 		return;
 	case BX_PLOT_X:
-		val = bx_fac_int(320);
+		val = bx_fac_int(g_bx_max_x[g_bx_mode]);
 		if(val < 0) {
 			bx_error(BX_IQERR);
 			return;
@@ -326,7 +424,7 @@ bx_continue()
 		bx_call(BX_FRMNUM, BX_PLOT_Y);
 		return;
 	case BX_PLOT_Y:
-		val = bx_fac_int(200);
+		val = bx_fac_int(g_bx_max_y[g_bx_mode]);
 		if(val < 0) {
 			bx_error(BX_IQERR);
 			return;
@@ -379,18 +477,23 @@ basic_let_trap()
 		bx_ver_out_next();
 		return;
 	}
-	if(c0 == 'S') {
+	if((c0 == 'S') || (c0 == 'D')) {
+		g_bx_mode = (c0 == 'D') ? BX_MODE_DHR : BX_MODE_SHR;
 		switch(c1) {
-		case TOK_HGR:			// SHGR
+		case TOK_HGR:			// SHGR / DHGR
 			bx_skip(2);
-			bx_shgr();
+			if(g_bx_mode == BX_MODE_DHR) {
+				bx_dhgr();
+			} else {
+				bx_shgr();
+			}
 			bx_end_statement();
 			return;
-		case TOK_HCOLOR:		// SHCOLOR=
+		case TOK_HCOLOR:		// SHCOLOR= / DHCOLOR=
 			bx_skip(2);
 			bx_call(BX_FRMNUM, BX_COLOR);
 			return;
-		case TOK_HPLOT:			// SHPLOT
+		case TOK_HPLOT:			// SHPLOT / DHPLOT
 			bx_skip(2);
 			g_bx_plot_line = 0;
 			if(bx_cur_char() == TOK_TO) {
