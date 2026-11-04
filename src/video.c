@@ -2742,8 +2742,9 @@ video_draw_a2_string(int line, const byte *bptr)
 	wptr += offset;
 	for(i = 0; i < 8; i++) {
 		line_bytes = ((start_line + i) << 16) | (40 << 8) | 0;
+		// Config panel colors (0x00RRGGBB): blue background, white text
 		redraw_changed_string(bptr, line_bytes, -1L,
-			wptr, 0, 0x00ffffff, pixels_per_line, 1);
+			wptr, 0x001830c0, 0x00ffffff, pixels_per_line, 1);
 	}
 	g_mainwin_kimage.x_refresh_needed = 1;
 }
