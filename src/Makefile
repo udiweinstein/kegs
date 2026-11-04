@@ -5,6 +5,11 @@ XOPTS_WIN = -Wall -fomit-frame-pointer -march=pentium
 SWIFTOBJS = AppDelegate.o MainView.o
 
 include vars
+
+# Locate the SDK and Swift toolchain via xcrun, so the build works with
+# either full Xcode or just the Command Line Tools, wherever installed.
+MAC_SDK := $(shell xcrun --sdk macosx --show-sdk-path)
+SWIFT_LIBDIR := $(dir $(shell xcrun -f swift))../lib/swift/macosx
 include ldvars
 
 .SUFFIXES: .dep .proto
@@ -28,16 +33,16 @@ clean:
 kegsmac: $(OBJECTS) $(OBJECTS1) compile_time.o $(SWIFTOBJS)
 	clang $(CCOPTS) $(LDOPTS) $(OBJECTS) $(OBJECTS1) $(SWIFTOBJS) \
 		compile_time.o $(LDFLAGS) -o kegsmac $(EXTRA_LIBS) \
-		-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk \
+		-isysroot $(MAC_SDK) \
 		-Xlinker -rpath -Xlinker @executable_path/../Frameworks \
 		-Xlinker -rpath -Xlinker /usr/lib/swift \
 		-Xlinker -no_deduplicate -fobjc-link-runtime \
-		-L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx \
+		-L$(SWIFT_LIBDIR) \
 		-L/usr/lib/swift
 	mkdir -p ../KEGSMAC.app/Contents/Resources/Base.lproj/
 	mkdir -p ../KEGSMAC.app/Contents/MacOS
 	mkdir -p ../KEGSMAC.app/Contents/Frameworks
-	$(PERL) cp_kegs_libs kegsmac /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx ../KEGSMAC.app/Contents/Frameworks
+	$(PERL) cp_kegs_libs kegsmac $(SWIFT_LIBDIR) ../KEGSMAC.app/Contents/Frameworks
 	mv kegsmac ../KEGSMAC.app/Contents/MacOS/KEGSMAC
 	echo "APPL????" > ../KEGSMAC.app/Contents/PkgInfo
 	cp -f Info.plist ../KEGSMAC.app/Contents/
