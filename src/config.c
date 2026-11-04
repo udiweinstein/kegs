@@ -1272,6 +1272,24 @@ config_load_roms()
 		}
 
 	}
+
+	// UDI: Add new Applesoft commands (see do_basic_let_trap() in
+	//  sim65816.c).  Applesoft LET is at $DA46 = JSR PTRGET (20 e3 df).
+	//  Unknown words like VER end up in LET, so replace that JSR with
+	//  WDM $56,$00 (42 56 00) and let the emulator check the statement.
+	if((g_rom_fc_ff_ptr[0x3da46] == 0x20) &&
+			(g_rom_fc_ff_ptr[0x3da47] == 0xe3) &&
+			(g_rom_fc_ff_ptr[0x3da48] == 0xdf)) {
+		g_rom_fc_ff_ptr[0x3da46] = 0x42;
+		g_rom_fc_ff_ptr[0x3da47] = 0x56;
+		g_rom_fc_ff_ptr[0x3da48] = 0x00;
+		printf("Patched Applesoft LET at $DA46 for new commands\n");
+	} else {
+		printf("Applesoft LET not found at $DA46: %02x %02x %02x, "
+			"new BASIC commands disabled\n",
+			g_rom_fc_ff_ptr[0x3da46], g_rom_fc_ff_ptr[0x3da47],
+			g_rom_fc_ff_ptr[0x3da48]);
+	}
 }
 
 void

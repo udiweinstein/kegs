@@ -1874,9 +1874,111 @@ do_cop(word32 ret)
 	fflush(stdout);
 }
 
+// UDI: New Applesoft commands, trapped at Applesoft LET ($DA46).
+//  See the ROM patch at the end of the ROM patching code in config.c.
+#define BASIC_LET_TRAP		0x56
+#define BASIC_LET_ADDR		0xda46
+#define BASIC_PTRGET		0xdfe3
+#define MON_COUT		0xfded
+
+static const char g_basic_ver_str[] = "1.0\r";
+static int g_basic_out_pos = -1;	// >= 0: printing g_basic_ver_str
+
+static void
+basic_push8(word32 val)
+{
+	set_memory_c(engine.stack, val & 0xff, 1);
+	engine.stack = (engine.stack - 1) & 0xffff;
+	if(engine.psr & 0x100) {
+		engine.stack = 0x100 | (engine.stack & 0xff);
+	}
+}
+
+static word32
+basic_pull8()
+{
+	engine.stack = (engine.stack + 1) & 0xffff;
+	if(engine.psr & 0x100) {
+		engine.stack = 0x100 | (engine.stack & 0xff);
+	}
+	return get_memory_c(engine.stack);
+}
+
+static int
+basic_upper(word32 c)
+{
+	c = c & 0x7f;
+	if((c >= 'a') && (c <= 'z')) {
+		c = c - 0x20;
+	}
+	return (int)c;
+}
+
+static void
+basic_out_next_char()
+{
+	word32	bank;
+	int	c;
+
+	bank = engine.kpc & 0xff0000;
+	c = g_basic_ver_str[g_basic_out_pos];
+	if(c == 0) {
+		// Done: act like RTS from LET, back to Applesoft NEWSTT
+		g_basic_out_pos = -1;
+		c = basic_pull8();
+		c |= basic_pull8() << 8;
+		engine.kpc = bank | ((c + 1) & 0xffff);
+		return;
+	}
+	g_basic_out_pos++;
+	// JSR COUT with A=char, returning to the WDM at $DA46 again
+	engine.acc = (engine.acc & 0xff00) | 0x80 | c;
+	basic_push8((BASIC_LET_ADDR - 1) >> 8);
+	basic_push8((BASIC_LET_ADDR - 1) & 0xff);
+	engine.kpc = bank | MON_COUT;
+}
+
+static void
+do_basic_let_trap()
+{
+	word32	txtptr, bank, c;
+
+	bank = engine.kpc & 0xff0000;
+	if(g_basic_out_pos >= 0) {
+		// Returned from COUT: print the next character
+		basic_out_next_char();
+		return;
+	}
+
+	// TXTPTR ($B8,$B9) points to the first char of the statement
+	txtptr = get_memory16_c(0xb8);
+	c = get_memory_c(txtptr + 3) & 0x7f;
+	if((basic_upper(get_memory_c(txtptr)) == 'V') &&
+			(basic_upper(get_memory_c(txtptr + 1)) == 'E') &&
+			(basic_upper(get_memory_c(txtptr + 2)) == 'R') &&
+			((c == 0) || (c == ':'))) {
+		// VER: skip over it and print the version
+		txtptr += 3;
+		set_memory_c(0xb8, txtptr & 0xff, 1);
+		set_memory_c(0xb9, (txtptr >> 8) & 0xff, 1);
+		g_basic_out_pos = 0;
+		basic_out_next_char();
+		return;
+	}
+
+	// Not ours: do the original JSR PTRGET, return to $DA49
+	basic_push8((BASIC_LET_ADDR + 2) >> 8);
+	basic_push8((BASIC_LET_ADDR + 2) & 0xff);
+	engine.kpc = bank | BASIC_PTRGET;
+}
+
 void
 do_wdm(word32 arg)
 {
+	if(arg == BASIC_LET_TRAP) {
+		do_basic_let_trap();
+		return;
+	}
 	if(arg == 0x00c7) {
 		// WDM, 0xc7, 0x00: WDM in Slot 7
 		if(engine.psr & 0x40) {
