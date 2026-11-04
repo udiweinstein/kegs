@@ -23,6 +23,10 @@
 //  DHCOLOR= n                color 0-15 (Lo-Res color numbers)
 //  DHPLOT x,y [TO x,y ...]   x 0-139, y 0-191 (also DHPLOT TO x,y)
 //  TEXT                      (Applesoft's own) also turns SHR / DHR off
+//  SOUND f,d                 play f Hz for d/100 sec on the Ensoniq DOC
+//                             (waits until done; f=0 is a rest)
+//  VOLUME= v                 0-15 (default 10)
+//  WAVE= w                   0 square, 1 sine, 2 triangle, 3 sawtooth
 
 #include "defc.h"
 #include <math.h>
@@ -38,17 +42,20 @@ extern dword64 g_cur_dfcyc;
 #define BX_SYNERR	0xdec9		// ?SYNTAX ERROR
 #define BX_IQERR	0xe199		// ?ILLEGAL QUANTITY ERROR
 #define BX_COUT		0xfded		// Monitor character output
+#define BX_WAIT		0xfca8		// Monitor delay loop
 
 #define TOK_HGR		0x91
 #define TOK_HCOLOR	0x92
 #define TOK_HPLOT	0x93
 #define TOK_TO		0xc1
+#define TOK_EQUAL	0xd0
 
 #define SHR_PIXELS	0xe12000
 #define SHR_SCB		0xe19d00
 #define SHR_PALETTE	0xe19e00
 
-enum { BX_IDLE = 0, BX_VER_OUT, BX_COLOR, BX_PLOT_X, BX_PLOT_Y };
+enum { BX_IDLE = 0, BX_VER_OUT, BX_COLOR, BX_PLOT_X, BX_PLOT_Y,
+	BX_SOUND_F, BX_SOUND_D, BX_SOUND_WAIT, BX_VOLUME, BX_WAVE };
 
 static const char g_bx_ver_str[] = "1.0\r";
 
@@ -57,6 +64,10 @@ static const word32 g_bx_palette[16] = {
 	0x000, 0x777, 0x841, 0x72c, 0x00f, 0x080, 0xf70, 0xd00,
 	0xfa9, 0xff0, 0x0e0, 0x4df, 0xdaf, 0x78f, 0xccc, 0xfff
 };
+
+extern byte doc_ram[];
+extern int g_doc_num_osc_en;
+extern word32 g_doc_sound_ctl;
 
 int	g_basic_shr_on = 0;		// SHR was turned on by SHGR
 int	g_basic_dhr_on = 0;		// DHR was turned on by DHGR
@@ -75,6 +86,10 @@ static int	g_bx_plot_line = 0;	// Draw a line from the last point
 static int	g_bx_plot_x = 0;
 static int	g_bx_last_x = 0;
 static int	g_bx_last_y = 0;
+static int	g_bx_sound_f = 0;
+static int	g_bx_volume = 10;
+static int	g_bx_wave = 0;
+static dword64	g_bx_sound_end_dfcyc = 0;
 
 // ---- 6502 helpers ----
 
@@ -375,6 +390,105 @@ bx_line(int x0, int y0, int x1, int y1)
 	}
 }
 
+// ---- Ensoniq DOC sound ----
+// We use oscillator 0, playing a 256-byte wave at DOC RAM $FF00.
+
+#define BX_DOC_OSC	0
+#define BX_DOC_PAGE	0xff
+
+// Write a DOC register through $C03C-$C03F, like a 65816 program would
+static void
+bx_doc_write(int reg, int val)
+{
+	set_memory_c(0xc03c, g_doc_sound_ctl & 0x0f, 1);	// Regs, no autoinc
+	set_memory_c(0xc03e, reg & 0xff, 1);
+	set_memory_c(0xc03f, 0, 1);
+	set_memory_c(0xc03d, val & 0xff, 1);
+}
+
+static void
+bx_doc_make_wave()
+{
+	double	dval;
+	int	i, val;
+
+	for(i = 0; i < 256; i++) {
+		switch(g_bx_wave) {
+		case 1:		// Sine
+			dval = sin(2.0 * M_PI * i / 256.0);
+			val = 128 + (int)(dval * 126.0);
+			break;
+		case 2:		// Triangle
+			val = (i < 128) ? (2 + 2*i) : (2 + 2*(255 - i));
+			break;
+		case 3:		// Sawtooth
+			val = 1 + (i * 254) / 255;
+			break;
+		default:	// Square
+			val = (i < 128) ? 0xe0 : 0x20;
+			break;
+		}
+		if(val < 1) {		// 0 would halt the oscillator
+			val = 1;
+		}
+		if(val > 255) {
+			val = 255;
+		}
+		doc_ram[(BX_DOC_PAGE << 8) + i] = val;
+	}
+}
+
+static void
+bx_sound_start(int freq)
+{
+	double	dupdate, dfc;
+	int	res, fc;
+
+	// Wave freq = FC * update_rate / 2^(17+res) for a 256-byte table,
+	//  update_rate = 894886 Hz / (oscillators enabled + 2)
+	dupdate = (DCYCS_28_MHZ / 32.0) / (double)(g_doc_num_osc_en + 2);
+	res = 7;
+	while(1) {
+		dfc = (double)freq * (double)(1 << (17 + res)) / dupdate;
+		if((dfc < 65536.0) || (res == 0)) {
+			break;
+		}
+		res--;
+	}
+	fc = (int)(dfc + 0.5);
+	if(fc > 0xffff) {
+		fc = 0xffff;
+	}
+	bx_doc_make_wave();
+	bx_doc_write(0xa0 + BX_DOC_OSC, 0x01);		// Halt while setting up
+	bx_doc_write(0x00 + BX_DOC_OSC, fc & 0xff);
+	bx_doc_write(0x20 + BX_DOC_OSC, fc >> 8);
+	bx_doc_write(0x40 + BX_DOC_OSC, g_bx_volume * 17);
+	bx_doc_write(0x80 + BX_DOC_OSC, BX_DOC_PAGE);
+	bx_doc_write(0xc0 + BX_DOC_OSC, res);		// 256 bytes, bank 0
+	bx_doc_write(0xa0 + BX_DOC_OSC, 0x00);		// Free run, channel 0
+}
+
+static void
+bx_sound_stop()
+{
+	bx_doc_write(0xa0 + BX_DOC_OSC, 0x01);		// Halt
+}
+
+// Returns the length of word if the statement starts with it, else 0
+static int
+bx_match_word(word32 txt, const char *word)
+{
+	int	i;
+
+	for(i = 0; word[i]; i++) {
+		if(bx_upper(get_memory_c(txt + i)) != word[i]) {
+			return 0;
+		}
+	}
+	return i;
+}
+
 // ---- The trap ----
 
 static void
@@ -394,6 +508,7 @@ bx_ver_out_next()
 static void
 bx_continue()
 {
+	word32	val2;
 	int	val;
 
 	switch(g_bx_state) {
@@ -444,6 +559,66 @@ bx_continue()
 		}
 		bx_end_statement();
 		return;
+	case BX_SOUND_F:
+		val = bx_fac_int(20001);
+		if(val < 0) {
+			bx_error(BX_IQERR);
+			return;
+		}
+		g_bx_sound_f = val;
+		if(bx_cur_char() != ',') {
+			bx_error(BX_SYNERR);
+			return;
+		}
+		bx_skip(1);
+		bx_call(BX_FRMNUM, BX_SOUND_D);
+		return;
+	case BX_SOUND_D:
+		val = bx_fac_int(65536);
+		if(val < 0) {
+			bx_error(BX_IQERR);
+			return;
+		}
+		val2 = bx_cur_char();
+		if((val2 != 0) && (val2 != ':')) {
+			bx_error(BX_SYNERR);
+			return;
+		}
+		if(g_bx_sound_f > 0) {
+			bx_sound_start(g_bx_sound_f);
+		}
+		g_bx_sound_end_dfcyc = g_cur_dfcyc +
+			((dword64)(val * (DCYCS_1_MHZ / 100.0)) << 16);
+		// Fall through: start waiting
+	case BX_SOUND_WAIT:
+		if(g_cur_dfcyc < g_bx_sound_end_dfcyc) {
+			engine.acc = (engine.acc & 0xff00) | 0x20;
+			bx_call(BX_WAIT, BX_SOUND_WAIT);	// ~1ms, again
+			return;
+		}
+		if(g_bx_sound_f > 0) {
+			bx_sound_stop();
+		}
+		bx_end_statement();
+		return;
+	case BX_VOLUME:
+		val = bx_fac_int(16);
+		if(val < 0) {
+			bx_error(BX_IQERR);
+			return;
+		}
+		g_bx_volume = val;
+		bx_end_statement();
+		return;
+	case BX_WAVE:
+		val = bx_fac_int(4);
+		if(val < 0) {
+			bx_error(BX_IQERR);
+			return;
+		}
+		g_bx_wave = val;
+		bx_end_statement();
+		return;
 	}
 	bx_error(BX_SYNERR);
 }
@@ -453,6 +628,7 @@ void
 basic_let_trap()
 {
 	word32	txt, c0, c1, c3;
+	int	len;
 
 	if(g_bx_state != BX_IDLE) {
 		if(engine.stack == g_bx_wait_stack) {
@@ -475,6 +651,24 @@ basic_let_trap()
 		bx_skip(3);
 		g_bx_out_pos = 0;
 		bx_ver_out_next();
+		return;
+	}
+	len = bx_match_word(txt, "SOUND");
+	if(len) {
+		bx_skip(len);
+		bx_call(BX_FRMNUM, BX_SOUND_F);
+		return;
+	}
+	len = bx_match_word(txt, "VOLUME");
+	if(len && (get_memory_c(txt + len) == TOK_EQUAL)) {
+		bx_skip(len + 1);
+		bx_call(BX_FRMNUM, BX_VOLUME);
+		return;
+	}
+	len = bx_match_word(txt, "WAVE");
+	if(len && (get_memory_c(txt + len) == TOK_EQUAL)) {
+		bx_skip(len + 1);
+		bx_call(BX_FRMNUM, BX_WAVE);
 		return;
 	}
 	if((c0 == 'S') || (c0 == 'D')) {
