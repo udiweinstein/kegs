@@ -151,6 +151,7 @@ int	g_keypad_key_is_down[10] = { 0 };/* List from 0-9 of which keypad */
 
 
 int g_esc_is_reset = 0;		// ESC key-down was used as Reset
+int g_quick_disk_key_up = 0;		// Ctrl-Cmd-E key-up to swallow
 
 #define SHIFT_DOWN	( (g_c025_val & 0x01) )
 #define CTRL_DOWN	( (g_c025_val & 0x02) )
@@ -2074,6 +2075,21 @@ adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 		}
 	}
 
+	/* Ctrl-Cmd-E: quick disk swap (same as F10).  Check the raw key */
+	/*  too, since with Ctrl down the unicode char may not map to 'E' */
+	if((a2code == 0x0e) || (raw_a2code == 0x0e)) {
+		if(is_up) {
+			if(g_quick_disk_key_up) {
+				g_quick_disk_key_up = 0;
+				return;			// swallow the key-up
+			}
+		} else if(CTRL_DOWN && CMD_DOWN && !OPTION_DOWN) {
+			g_quick_disk_key_up = 1;
+			cfg_quick_disk_select(0);
+			return;
+		}
+	}
+
 	/* Only process reset requests here */
 	if((is_up == 0) && (a2code == 0x7f) && CTRL_DOWN) {
 		/* Reset pressed! */
@@ -2131,7 +2147,8 @@ adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 							g_invert_paddles);
 			}
 			break;
-		case 0x0a: /* F10 - nothing */
+		case 0x0a: /* F10 - quick disk swap, Shift-F10: eject */
+			cfg_quick_disk_select(SHIFT_DOWN != 0);
 			break;
 		case 0x0b: /* F11 - full screen */
 			break;

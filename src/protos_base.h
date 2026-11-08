@@ -185,6 +185,12 @@ int cfg_partition_find_by_name_or_num(Disk *dsk, const char *in_partnamestr, int
 int cfg_partition_make_list_from_name(const char *namestr);
 int cfg_partition_make_list(int fd);
 int cfg_maybe_insert_disk(int slot, int drive, const char *namestr);
+void cfg_quick_disk_select(int do_eject);
+int cfg_quick_disk_key(int key);
+void cfg_quick_disk_auto_slot(void);
+int cfg_guess_disk_slot(const char *str, dword64 dsize);
+void cfg_quick_disk_check_done(void);
+int cfg_drop_disk_image(const char *path, int drive2);
 void cfg_insert_disk_dynapro(int slot, int drive, const char *name);
 int cfg_stat(char *path, struct stat *sb, int do_lstat);
 word32 cfg_get_le16(byte *bptr);

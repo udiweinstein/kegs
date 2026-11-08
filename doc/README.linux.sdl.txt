@@ -45,4 +45,15 @@ this).  F4 or Option-ESC opens the config panel, Ctrl-ESC is RESET.
 To quit, press Ctrl-F10 (or close the window on a desktop, or press
 Ctrl-C in the terminal you started it from).
 
+Changing disks quickly:
+- F10 (or Ctrl-Open-Apple-E, which is Ctrl-Left-Alt-E here) opens the
+  file selector straight away.  Enter inserts the image and goes right
+  back to the emulation; the slot is chosen by the kind of image
+  (5.25" -> s6, 3.5" -> s5, hard disk -> s7).  ESC cancels.  In the
+  selector, 5/6/7 forces a slot and 1/2 picks the drive.  Shift-F10
+  ejects the last used drive.
+- Drag a disk image onto the KEGS window (when running on a desktop):
+  5.25" -> s6, 3.5" -> s5, larger images or a folder -> s7.  A second
+  dropped file, or holding Alt, goes to drive 2.
+
 The F7 debugger window is not supported by this driver.

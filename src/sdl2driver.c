@@ -46,6 +46,7 @@ int	g_sdl_fullscreen = 0;
 int	g_sdl_is_kmsdrm = 0;
 int	g_sdl_mouse_buttons = 0;
 int	g_sdl_quit_requested = 0;
+int	g_sdl_drop_count = 0;
 
 // SDL scancode (physical key position) -> Apple ADB keycode.
 //  Using scancodes means the emulated keyboard follows the physical
@@ -607,6 +608,21 @@ sdl_input_events()
 			}
 			g_sdl_mouse_buttons = buttons;
 			key_or_mouse = 1;
+			break;
+		case SDL_DROPBEGIN:
+			g_sdl_drop_count = 0;
+			break;
+		case SDL_DROPFILE:
+			// Disk image dropped on the window: first file goes
+			//  to drive 1, a second file (or Alt held) to drive 2
+			if(ev.drop.file) {
+				(void)cfg_drop_disk_image(ev.drop.file,
+					(g_sdl_drop_count == 1) ||
+					((SDL_GetModState() & KMOD_ALT) != 0));
+				SDL_free(ev.drop.file);
+				g_sdl_drop_count++;
+				video_set_x_refresh_needed(kimage_ptr, 1);
+			}
 			break;
 		default:
 			break;

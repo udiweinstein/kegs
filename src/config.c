@@ -358,6 +358,9 @@ int g_cfg_defval_index = 0;
 
 word32 g_cfg_slotdrive = 0;
 int g_cfg_select_partition = -1;
+int g_cfg_quick_disk_mode = 0;		// F10 / Ctrl-Cmd-E quick disk swap
+word32 g_cfg_quick_slotdrive = 0x600;	// Last quick slot/drive: s6d1
+int g_cfg_quick_slot_manual = 0;	// User picked the slot with 5/6/7
 char g_cfg_tmp_path[CFG_PATH_MAX];
 char g_cfg_file_path[CFG_PATH_MAX];
 char g_cfg_file_cachedpath[CFG_PATH_MAX];
@@ -2459,6 +2462,254 @@ cfg_maybe_insert_disk(int slot, int drive, const char *namestr)
 }
 
 void
+cfg_quick_disk_select(int do_eject)
+{
+	word32	slotdrive;
+
+	// F10 or Ctrl-Cmd-E: jump straight to the file selection dialog
+	//  for the last used drive.  Once a file is picked (or ESC), go
+	//  right back to the emulation.  Shift-F10: eject that drive.
+	slotdrive = g_cfg_quick_slotdrive;
+	if(g_rom_version < 0) {
+		return;
+	}
+	if(do_eject) {
+		printf("Quick eject s%dd%d\n", (slotdrive >> 8) & 0xf,
+						(slotdrive & 0xff) + 1);
+		iwm_eject_disk_by_num((slotdrive >> 8) & 0xf, slotdrive & 0xff);
+		return;
+	}
+	if(g_config_control_panel) {
+		if(g_cfg_quick_disk_mode) {
+			// Pressed again: cancel and go back to emulation
+			g_cfg_quick_disk_mode = 0;
+			cfg_set_config_panel(0);
+		}
+		return;
+	}
+	cfg_set_config_panel(1);
+	g_menuptr = &g_cfg_disk_menu[0];
+	g_menu_line = 1;
+	g_cfg_quick_disk_mode = 1;
+	g_cfg_quick_slot_manual = 0;
+	g_cfg_file_pathfield = 0;
+	g_cfg_slotdrive = slotdrive;
+	cfg_file_init();
+	g_menu_redraw_needed = 1;
+}
+
+int
+cfg_quick_disk_key(int key)
+{
+	word32	slotdrive;
+	int	slot, drive;
+
+	// Extra keys in the quick file selection dialog.  Returns 1 if
+	//  the key was handled
+	if(!g_cfg_quick_disk_mode || g_cfg_file_pathfield ||
+						(g_cfg_select_partition > 0)) {
+		return 0;
+	}
+	slotdrive = g_cfg_slotdrive;
+	slot = (slotdrive >> 8) & 0xf;
+	drive = slotdrive & 0xff;
+	if(key == 0x1b) {		// ESC: cancel, keep the current disk
+		g_cfg_slotdrive = 0;
+		g_cfg_select_partition = -1;
+		g_cfg_dirlist.invalid = 1;
+		g_cfg_newdisk_select = 0;
+		return 1;
+	}
+	if(key == 0x0d) {
+		// Enter: unless a slot was picked with 5/6/7, choose the slot
+		//  by the kind of image.  Then let the normal code insert it
+		if(!g_cfg_quick_slot_manual) {
+			cfg_quick_disk_auto_slot();
+		}
+		return 0;
+	}
+	if((key >= '5') && (key <= '7')) {
+		slot = key - '0';
+		g_cfg_quick_slot_manual = 1;
+	} else if((key == '1') || (key == '2')) {
+		drive = key - '1';
+	} else {
+		return 0;
+	}
+	g_cfg_slotdrive = (slot << 8) | drive;
+	g_cfg_quick_slotdrive = g_cfg_slotdrive;
+	return 1;
+}
+
+void
+cfg_quick_disk_auto_slot()
+{
+	struct stat stat_buf;
+	char	*str;
+	int	pos, slot, drive;
+
+	pos = g_cfg_dirlist.curent;
+	if((g_cfg_dirlist.direntptr == 0) || (pos < 0) ||
+						(pos >= g_cfg_dirlist.last)) {
+		return;
+	}
+	str = g_cfg_dirlist.direntptr[pos].name;
+	if((str == 0) || !strcmp(str, "../")) {
+		return;
+	}
+	cfg_strncpy(&g_cfg_tmp_path[0], &g_cfg_file_cachedreal[0],
+								CFG_PATH_MAX);
+	cfg_strlcat(&g_cfg_tmp_path[0], str, CFG_PATH_MAX);
+	if(cfg_stat(&g_cfg_tmp_path[0], &stat_buf, 0) != 0) {
+		return;
+	}
+	if((stat_buf.st_mode & S_IFMT) != S_IFREG) {
+		return;			// Directory: just enter it
+	}
+	slot = cfg_guess_disk_slot(&g_cfg_tmp_path[0], stat_buf.st_size);
+	drive = g_cfg_slotdrive & 0xff;
+	g_cfg_slotdrive = (slot << 8) | drive;
+	g_cfg_quick_slotdrive = g_cfg_slotdrive;
+	printf("Quick disk: %s -> s%dd%d\n", &g_cfg_tmp_path[0], slot,
+								drive + 1);
+}
+
+void
+cfg_quick_disk_check_done()
+{
+	// Called after each key in file selection: if the quick dialog
+	//  is finished (disk inserted or ESC), leave the config panel
+	if(g_cfg_quick_disk_mode && ((g_cfg_slotdrive & 0xfff) == 0)) {
+		g_cfg_quick_disk_mode = 0;
+		cfg_set_config_panel(0);
+	}
+}
+
+int
+cfg_guess_disk_slot(const char *str, dword64 dsize)
+{
+	byte	buf[64];
+	const char *ext;
+	word32	blocks;
+	int	slot, fd, len;
+
+	// Guess the right slot for a disk image: 5.25" -> 6, 3.5" -> 5,
+	//  hard disk -> 7.  By the WOZ/2IMG header, else by file size
+	slot = 7;
+	if(dsize <= 250000) {
+		slot = 6;
+	} else if(dsize <= 1700000) {
+		slot = 5;
+	}
+	len = (int)strlen(str);
+	ext = "";
+	if(len > 4) {
+		ext = &str[len - 4];
+	}
+	memset(buf, 0, sizeof(buf));
+	fd = open(str, O_RDONLY | O_BINARY, 0);
+	if(fd >= 0) {
+		(void)cfg_read_from_fd(fd, &buf[0], 0, sizeof(buf));
+		if((buf[0] == 0x1f) && (buf[1] == 0x8b) && (dsize > 8)) {
+			// gzip: the last 4 bytes are the uncompressed size
+			(void)cfg_read_from_fd(fd, &buf[0], dsize - 4, 4);
+			dsize = cfg_get_le32(&buf[0]);
+			slot = 7;
+			if(dsize <= 250000) {
+				slot = 6;
+			} else if(dsize <= 1700000) {
+				slot = 5;
+			}
+			memset(buf, 0, sizeof(buf));
+		}
+		close(fd);
+	}
+	if((buf[0] == 'W') && (buf[1] == 'O') && (buf[2] == 'Z')) {
+		// WOZ: INFO chunk disk type, 1=5.25", 2=3.5"
+		slot = (buf[21] == 2) ? 5 : 6;
+	} else if((buf[0] == '2') && (buf[1] == 'I') && (buf[2] == 'M') &&
+							(buf[3] == 'G')) {
+		blocks = cfg_get_le32(&buf[20]);
+		if(blocks == 0) {		// DOS order: use data length
+			blocks = cfg_get_le32(&buf[28]) >> 9;
+		}
+		slot = 7;
+		if(blocks <= 280) {
+			slot = 6;
+		} else if(blocks <= 1600) {
+			slot = 5;
+		}
+	} else if((ext[0] == '.') && (tolower(ext[1]) == 'n') &&
+			(tolower(ext[2]) == 'i') && (tolower(ext[3]) == 'b')) {
+		slot = 6;
+	}
+
+	return slot;
+}
+
+int
+cfg_drop_disk_image(const char *path, int drive2)
+{
+	struct stat stat_buf;
+	char	*str;
+	int	slot, drive, ret;
+
+	// A disk image file (or folder) was dropped on the KEGS window.
+	//  Pick the drive by the kind of image: 5.25" -> s6, 3.5" -> s5,
+	//  hard disk or folder -> s7.  drive2 != 0: use drive 2
+	if((path == 0) || (*path == 0) || (g_rom_version < 0)) {
+		return 0;
+	}
+	str = kegs_malloc_str(path);
+	ret = cfg_stat(str, &stat_buf, 0);
+	if(ret != 0) {
+		printf("Dropped file %s: cannot stat\n", str);
+		free(str);
+		return 0;
+	}
+	drive = drive2 ? 1 : 0;
+	if((stat_buf.st_mode & S_IFMT) == S_IFDIR) {
+		// Folder: mount as a DynaPro ProDOS hard disk in slot 7
+		cfg_insert_disk_dynapro(7, drive, str);
+		g_cfg_quick_slotdrive = (7 << 8) | drive;
+		printf("Dropped folder %s -> s7d%d\n", str, drive + 1);
+		free(str);
+		return 1;
+	}
+	slot = cfg_guess_disk_slot(str, stat_buf.st_size);
+	g_cfg_quick_slotdrive = (slot << 8) | drive;
+	printf("Dropped %s -> s%dd%d\n", str, slot, drive + 1);
+
+	ret = cfg_maybe_insert_disk(slot, drive, str);
+	if(ret > 0) {
+		// Inserted.  If the quick dialog was open, close it
+		free(str);
+		if(g_config_control_panel && g_cfg_quick_disk_mode) {
+			g_cfg_quick_disk_mode = 0;
+			cfg_set_config_panel(0);
+		}
+		return 1;
+	}
+
+	// Images inside .zip/.sdk etc. or partitioned disks need a choice:
+	//  open the quick dialog with the partition list
+	if(!g_config_control_panel) {
+		cfg_set_config_panel(1);
+	}
+	g_menuptr = &g_cfg_disk_menu[0];
+	g_cfg_slotdrive = g_cfg_quick_slotdrive;
+	cfg_file_init();
+	cfg_strncpy(&g_cfg_file_path[0], str, CFG_PATH_MAX);
+	free(str);
+	g_cfg_select_partition = 1;
+	g_cfg_file_pathfield = 0;
+	// Show the partition list, the user picks one
+	g_cfg_quick_disk_mode = 1;
+	g_menu_redraw_needed = 1;
+	return 1;
+}
+
+void
 cfg_insert_disk_dynapro(int slot, int drive, const char *name)
 {
 	int	dynapro_blocks;
@@ -3905,9 +4156,16 @@ cfg_file_draw()
 		} else if(g_cfg_newdisk_select) {
 			tmp_str = "Create new";
 		}
-		cfg_printf("\b%s image for s%dd%d\b", tmp_str,
-			(g_cfg_slotdrive >> 8) & 0xf,
-			(g_cfg_slotdrive & 0xff) + 1);
+		if(g_cfg_quick_disk_mode && !g_cfg_quick_slot_manual &&
+					(g_cfg_select_partition <= 0)) {
+			cfg_htab_vtab(22, 0);
+			cfg_printf("\bSelect image (slot by type), drive %d\b",
+				(g_cfg_slotdrive & 0xff) + 1);
+		} else {
+			cfg_printf("\b%s image for s%dd%d\b", tmp_str,
+				(g_cfg_slotdrive >> 8) & 0xf,
+				(g_cfg_slotdrive & 0xff) + 1);
+		}
 	}
 
 	cfg_htab_vtab(2, 1);
@@ -4345,8 +4603,18 @@ cfg_draw_menu()
 	}
 
 	cfg_htab_vtab(0, 23);
-	cfg_printf("Move: \tJ\t \tK\t Change: \tH\t \tU\t \tM\t");
-	if(print_eject_help) {
+	if(g_cfg_quick_disk_mode && (g_cfg_select_partition <= 0)) {
+		// Quick disk swap (F10): different help line
+		cfg_printf("Insert: \bEnter\b  Cancel: \bESC\b  Drive: \b5\b/"
+			"\b6\b/\b7\b \b1\b/\b2\b  Edit Path: \bTAB\b  "
+			"Eject: \bShift-F10\b");
+		print_eject_help = 0;
+	} else {
+		cfg_printf("Move: \tJ\t \tK\t Change: \tH\t \tU\t \tM\t");
+	}
+	if(g_cfg_quick_disk_mode && (g_cfg_select_partition <= 0)) {
+		// Help line already printed
+	} else if(print_eject_help) {
 		cfg_printf("  Eject: ");
 		if((g_cfg_slotdrive & 0xfff) > 0) {
 			cfg_printf("\bESC\b");
@@ -4355,7 +4623,8 @@ cfg_draw_menu()
 			cfg_printf("  New image: N  Dup image: D  Verify: V");
 		}
 	}
-	if((g_cfg_slotdrive & 0xfff) > 0) {
+	if(((g_cfg_slotdrive & 0xfff) > 0) &&
+			!(g_cfg_quick_disk_mode && (g_cfg_select_partition <= 0))) {
 		cfg_printf("  Edit Path: \bTAB\b");
 		if(g_cfg_select_partition > 0) {
 			cfg_printf("  (\bCmd\b-\bA\b to mount all)");
@@ -4481,7 +4750,10 @@ cfg_control_panel_update1()
 		g_menu_redraw_needed = 1;
 		// If we get here, we got a key, figure out what to do with it
 		if(g_cfg_slotdrive & 0xfff) {
-			cfg_file_handle_key(key);
+			if(!cfg_quick_disk_key(key)) {
+				cfg_file_handle_key(key);
+			}
+			cfg_quick_disk_check_done();
 			continue;
 		}
 		if(g_cfg_edit_ptr) {
