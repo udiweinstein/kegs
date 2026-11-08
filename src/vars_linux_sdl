@@ -1,0 +1,13 @@
+
+# Linux build using SDL2 (no X11 needed: runs on the console via KMSDRM,
+#  e.g. Raspberry Pi OS Lite, as well as under X11/Wayland).
+# Use: cd src; rm -f vars; ln -s vars_linux_sdl vars; make
+TARGET = sdlkegs
+OBJECTS1 = pulseaudio_driver.o sdl2driver.o
+CCOPTS = -O2 -Wall -fomit-frame-pointer -DPULSE_AUDIO $(shell sdl2-config --cflags)
+NAME = sdlkegs
+LD = $(CC)
+EXTRA_LIBS = $(shell sdl2-config --libs) -lpulse -lm
+EXTRA_SPECIALS =
+
+XOPTS =

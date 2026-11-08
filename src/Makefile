@@ -26,7 +26,7 @@ specials:
 specials_clean:
 
 clean:
-	rm -f *.o kegsmac
+	rm -f *.o kegsmac xkegs sdlkegs
 
 
 # Mac builds:
@@ -51,6 +51,12 @@ kegsmac: $(OBJECTS) $(OBJECTS1) compile_time.o $(SWIFTOBJS)
 	#cp -f $(PROJROOT)/lib/2mg.icns ../KEGSMAC.app/Contents/Resources/
 	#cp -f $(PROJROOT)/lib/525.icns ../KEGSMAC.app/Contents/Resources/
 	#touch '../KEGSMAC.app/Icon?'
+
+# Linux SDL2 builds (no X11 required, see vars_linux_sdl):
+sdlkegs: $(OBJECTS) $(OBJECTS1) compile_time.o
+	$(CC) $(CCOPTS) $(LDOPTS) $(OBJECTS) $(OBJECTS1) compile_time.o \
+		$(LDFLAGS) -o $(NAME)$(SUFFIX) $(EXTRA_LIBS)
+	mv sdlkegs ..
 
 # Linux for X builds:
 xkegs: $(OBJECTS) $(OBJECTS1) compile_time.o
