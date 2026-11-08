@@ -150,6 +150,8 @@ int	g_keypad_key_is_down[10] = { 0 };/* List from 0-9 of which keypad */
 					/*  keys are currently pressed */
 
 
+int g_esc_is_reset = 0;		// ESC key-down was used as Reset
+
 #define SHIFT_DOWN	( (g_c025_val & 0x01) )
 #define CTRL_DOWN	( (g_c025_val & 0x02) )
 #define CAPS_LOCK_DOWN	( (g_c025_val & 0x04) )
@@ -1685,8 +1687,9 @@ adb_key_event(int a2code, int is_up)
 	}
 
 	if(!is_up && a2code == 0x35) {
-		/* ESC pressed, see if ctrl & cmd key down */
-		if(CTRL_DOWN && CMD_DOWN) {
+		/* ESC pressed: Ctrl-Option-ESC opens the Desk Manager */
+		/*  (Ctrl-Cmd-ESC is used as Ctrl-Cmd-Reset, see below) */
+		if(CTRL_DOWN && OPTION_DOWN) {
 			/* Desk mgr int */
 			printf("Desk mgr int!\n");
 
@@ -2047,6 +2050,27 @@ adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 			break;
 		default:
 			break;
+		}
+	}
+
+	/* ESC acts as the Reset key, like the Reset key near it on the */
+	/*  original keyboards: Ctrl-ESC = Ctrl-Reset, Ctrl-Cmd-ESC = */
+	/*  reboot.  Plain ESC stays Escape; Ctrl-Option-ESC = Desk Mgr, */
+	/*  Option-ESC = KEGS config panel (F4) */
+	if(a2code == 0x35) {
+		if(is_up) {
+			if(g_esc_is_reset) {
+				g_esc_is_reset = 0;
+				return;			// swallow the key-up
+			}
+		} else if(CTRL_DOWN && !OPTION_DOWN) {
+			g_esc_is_reset = 1;
+			a2code = 0x7f;
+		} else if(OPTION_DOWN && !CTRL_DOWN && !CMD_DOWN) {
+			// Option-ESC: KEGS configuration panel, like F4
+			g_esc_is_reset = 1;		// swallow the key-up
+			cfg_toggle_config_panel();
+			return;
 		}
 	}
 

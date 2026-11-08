@@ -47,7 +47,13 @@ class MainView: NSView {
 		let unicode_key = get_unicode_key_from_event(event)
 		// print(".performKeyEquiv keycode: \(keycode), is_repeat: " +
 		//					"\(is_repeat)")
-		if(((current_flags & is_cmd) == 0) || is_repeat) {
+		// macOS never sends keyDown for Ctrl-ESC / Ctrl-Option-ESC
+		//  (only the keyUp), so handle ESC with Control here: it is
+		//  the Reset key (Ctrl-ESC), Desk Manager (Ctrl-Option-ESC) and
+		//  the KEGS config panel (Option-ESC)
+		let ctrl_esc = (keycode == 0x35) &&
+			((current_flags & (is_control | is_option)) != 0)
+		if((((current_flags & is_cmd) == 0) && !ctrl_esc) || is_repeat) {
 			// If CMD isn't being held down, just ignore this
 			return false
 		}
