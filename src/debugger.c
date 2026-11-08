@@ -46,6 +46,9 @@ extern byte *g_slow_memory_ptr;
 extern int g_halt_sim;
 extern word32 g_c068_statereg;
 extern word32 stop_run_at;
+extern word32 g_a2font_bits[0x100][8];
+extern word32 g_a2font_bits_us[0x100][8];
+extern word32 (*g_redraw_font)[8];
 extern int Verbose;
 extern int Halt_on;
 extern int g_a2_key_to_ascii[][4];
@@ -410,6 +413,7 @@ debug_draw_debug_line(Kimage *kimage_ptr, int line, int vid_line)
 	int	i;
 
 	// printf("draw debug line:%d at vid_line:%d\n", line, vid_line);
+	g_redraw_font = g_a2font_bits_us;	// debugger text: US font
 	for(i = 7; i >= 0; i--) {
 		line_bytes = (vid_line << 16) | (40 << 8) | 0;
 		redraw_changed_string(&(g_debug_lines_ptr[line].str_buf[0]),
@@ -417,6 +421,7 @@ debug_draw_debug_line(Kimage *kimage_ptr, int line, int vid_line)
 			kimage_ptr->a2_width_full, 1);
 		vid_line--;
 	}
+	g_redraw_font = g_a2font_bits;
 }
 
 Dbg_longcmd g_debug_bp_clear[] = {

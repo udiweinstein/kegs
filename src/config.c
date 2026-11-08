@@ -127,6 +127,7 @@ char g_cfg_edit_buf[CFG_OPT_MAXSTR];
 char *g_cfg_rom_path = "ROM";			// config_init_menus will malloc
 char *g_cfg_charrom_path = "Undefined";		// config_init_menus will malloc
 int g_cfg_charrom_pos = 0;
+int g_cfg_hebrew_font = 0;		// 1: built-in Hebrew //e character set
 char *g_cfg_file_def_name = "Undefined";
 char **g_cfg_file_strptr = 0;
 int g_cfg_file_min_size = 1024;
@@ -248,6 +249,8 @@ Cfg_menu g_cfg_rom_menu[] = {
 
 Cfg_menu g_cfg_charrom_menu[] = {
 { "Character ROM File Selection", g_cfg_charrom_menu, 0, 0, CFGTYPE_MENU },
+{ "Built-in Font,0,US English (standard),1,Hebrew (lowercase = Hebrew letters)",
+	KNMP(g_cfg_hebrew_font), CFGTYPE_INT },
 { "Character ROM File", KNMP(g_cfg_charrom_path), CFGTYPE_FILE },
 { "Character Set,0,0x00 US Enhanced,1,0x01 US Un-enhanced,"
 	"2,0x02 Clinton Turner V1 Enhanced,3,0x03 ReActiveMicro Enhanced,"
@@ -1008,6 +1011,9 @@ cfg_int_update(int *iptr, int new_val)
 	}
 	if(iptr == &g_cfg_charrom_pos) {
 		cfg_load_charrom();
+	}
+	if(iptr == &g_cfg_hebrew_font) {
+		prepare_a2_font();	// switch built-in font (overrides ROM file)
 	}
 
 	for(i = 0; i < 2; i++) {

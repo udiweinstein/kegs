@@ -46,6 +46,8 @@ word32 g_slow_mem_changed[SLOW_MEM_CH_SIZE];
 word32 g_slow_mem_ch2[SLOW_MEM_CH_SIZE];
 
 word32 g_a2font_bits[0x100][8];
+word32 g_a2font_bits_us[0x100][8];	// always the US font: config panel, status
+word32 (*g_redraw_font)[8] = g_a2font_bits;	// table used by redraw_changed_string
 
 word32 g_superhires_scan_save[2][256];
 
@@ -263,6 +265,12 @@ const int g_screen_index[] = {
 		0x078, 0x0f8, 0x178, 0x1f8, 0x278, 0x2f8, 0x378, 0x3f8
 			// Last row is for float_bus() during VBL
 };
+
+const byte g_hebrew_font[27][8] = {
+#include "hebfont.h"
+};
+
+extern int g_cfg_hebrew_font;
 
 byte g_font_array[256][8] = {
 #include "kegsfont.h"
@@ -1146,8 +1154,8 @@ redraw_changed_string(const byte *bptr, word32 line_bytes, word32 ch_mask,
 			pos++;
 		}
 		val1 = bptr[pos++];
-		val2 = g_a2font_bits[val0][st_line_mod8];
-		val3 = g_a2font_bits[val1][st_line_mod8];
+		val2 = g_redraw_font[val0][st_line_mod8];
+		val3 = g_redraw_font[val1][st_line_mod8];
 			// val2, [6:0] is 80-column character bits, and
 			//  [21:8] are the 40-column char bits (double-wide)
 		if(dbl) {
@@ -1924,21 +1932,21 @@ video_refresh_line(word32 line_bytes, int must_reparse, word32 filt_stat)
 	}
 }
 
-void
-prepare_a2_font()
+static void
+a2_font_to_bits(byte font[256][8], word32 bits[0x100][8])
 {
 	word32	val0, val1, val2;
 	int	i, j, k;
 
-	// Prepare g_a2font_bits[char][line] where each entry indicates the
+	// Prepare bits[char][line] where each entry indicates the
 	//  set pixels in this line of the character.  Bits 6:0 are an
 	//  80-column character, and bits 21:8 are  the 14 expanded bits of a
 	//  40-columns character, both with the first visible bit at the
-	//  rightmost bit address.  But g_font_array[] is in big-endian bit
+	//  rightmost bit address.  But font[] is in big-endian bit
 	//  order, which is less useful
 	for(i = 0; i < 256; i++) {
 		for(j = 0; j < 8; j++) {
-			val0 = g_font_array[i][j] >> 1;
+			val0 = font[i][j] >> 1;
 			val1 = 0;		// 80-column bits
 			val2 = 0;		// 40-column bits (doubled)
 			for(k = 0; k < 7; k++) {
@@ -1950,9 +1958,32 @@ prepare_a2_font()
 				}
 				val0 = val0 >> 1;
 			}
-			g_a2font_bits[i][j] = (val2 << 8) | val1;
+			bits[i][j] = (val2 << 8) | val1;
 		}
 	}
+}
+
+void
+prepare_a2_font()
+{
+	byte	font[256][8];
+	int	i, j;
+
+	// The US font is always kept for the F4 config panel and status lines
+	a2_font_to_bits(g_font_array, g_a2font_bits_us);
+
+	memcpy(&font[0][0], &g_font_array[0][0], sizeof(font));
+	if(g_cfg_hebrew_font) {
+		// Hebrew //e character set: Hebrew letters take the lowercase
+		//  slots 0x60-0x7a (normal at 0xe0+, inverse at 0x60+)
+		for(i = 0; i < 27; i++) {
+			for(j = 0; j < 8; j++) {
+				font[0xe0 + i][j] = g_hebrew_font[i][j];
+				font[0x60 + i][j] = (~g_hebrew_font[i][j]) & 0xff;
+			}
+		}
+	}
+	a2_font_to_bits(font, g_a2font_bits);
 }
 
 void
@@ -2716,11 +2747,13 @@ video_update_status_line(int line, const char *string)
 	offset = (pixels_per_line * g_video_act_margin_top);
 	wptr = g_mainwin_kimage.wptr;
 	wptr += offset;
+	g_redraw_font = g_a2font_bits_us;
 	for(i = 0; i < 8; i++) {
 		line_bytes = ((start_line + i) << 16) | (40 << 8) | 0;
 		redraw_changed_string(&(a2_str_buf[0]), line_bytes, -1L,
 			wptr, 0, 0x00ffffff, pixels_per_line, 1);
 	}
+	g_redraw_font = g_a2font_bits;
 
 	// Don't add rectangle here, video_form_change_rects will do it
 	//video_add_a2_rect(start_line, start_line + 8, 0, 640);
@@ -2740,12 +2773,14 @@ video_draw_a2_string(int line, const byte *bptr)
 					g_video_act_margin_left;
 	wptr = g_mainwin_kimage.wptr;
 	wptr += offset;
+	g_redraw_font = g_a2font_bits_us;
 	for(i = 0; i < 8; i++) {
 		line_bytes = ((start_line + i) << 16) | (40 << 8) | 0;
 		// Config panel colors (0x00RRGGBB): blue background, white text
 		redraw_changed_string(bptr, line_bytes, -1L,
 			wptr, 0x001830c0, 0x00ffffff, pixels_per_line, 1);
 	}
+	g_redraw_font = g_a2font_bits;
 	g_mainwin_kimage.x_refresh_needed = 1;
 }
 
