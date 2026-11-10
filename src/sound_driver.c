@@ -50,6 +50,7 @@ int	g_preferred_rate = 48000;
 int	g_audio_socket = -1;
 int	g_bytes_written = 0;
 int	g_pulse_audio = 0;
+int	g_sdl_audio = 0;
 int	g_pipe_fd[2] = { -1, -1 };
 int	g_pipe2_fd[2] = { -1, -1 };
 
@@ -94,7 +95,7 @@ snddrv_init()
 	size = SOUND_SHM_SAMP_SIZE * SAMPLE_CHAN_SIZE;
 
 	use_shm = KEGS_CAN_FORK;
-#ifdef PULSE_AUDIO
+#if defined(PULSE_AUDIO) || defined(SDL_AUDIO)
 	use_shm = 0;
 #endif
 	if(!use_shm) {
@@ -108,6 +109,18 @@ snddrv_init()
 #endif
 #ifdef _WIN32
 		win32snd_init(shmaddr);
+		return;
+#endif
+#ifdef SDL_AUDIO
+		ret = sdlaudio_init();
+		if(ret == 0) {
+			g_sdl_audio = 1;
+			return;		// Success!
+		}
+		free(shmaddr);
+		g_sound_shm_addr = 0;
+		g_audio_enable = 0;	// No /dev/dsp fallback for SDL
+		sound_set_audio_rate(g_preferred_rate);
 		return;
 #endif
 #ifdef PULSE_AUDIO
@@ -259,6 +272,11 @@ snddrv_shutdown()
 		pulse_audio_shutdown();
 	}
 #endif
+#ifdef SDL_AUDIO
+	if(g_sdl_audio) {
+		sdlaudio_shutdown();
+	}
+#endif
 }
 
 void
@@ -284,7 +302,7 @@ snddrv_send_sound(int real_samps, int size)
 #if defined(MAC) || defined(_WIN32)
 	call_playit = 1;			// Never fork child mac/windows
 #endif
-	if(call_playit || g_pulse_audio) {
+	if(call_playit || g_pulse_audio || g_sdl_audio) {
 		child_sound_playit(tmp);
 		return;
 	}
@@ -418,6 +436,11 @@ child_send_samples(byte *ptr, int size)
 # ifdef MAC
 	return mac_send_audio(ptr, size);
 # else
+#  ifdef SDL_AUDIO
+	if(g_sdl_audio) {
+		return sdlaudio_send_audio(ptr, size);
+	}
+#  endif
 #  ifdef PULSE_AUDIO
 	if(g_pulse_audio) {
 		return pulse_audio_send_audio(ptr, size);

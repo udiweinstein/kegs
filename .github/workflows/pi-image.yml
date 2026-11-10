@@ -1,0 +1,87 @@
+# Builds the Raspberry Pi 4 SD card image (Buildroot, boots straight into
+# KEGS).  Runs on every push to the pi-buildroot branch, by hand from the
+# Actions tab, or on a tag like pi-v1, which also publishes the image as
+# a GitHub Release.
+name: Pi 4 SD image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ pi-buildroot ]
+    paths: [ 'buildroot/**', 'src/**', '.github/workflows/pi-image.yml' ]
+    tags: [ 'pi-v*' ]
+
+env:
+  BUILDROOT_VERSION: 2026.02.3
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc bison flex cpio rsync \
+            unzip file wget libssl-dev python3 git
+
+      - name: Get Buildroot
+        run: |
+          git clone --depth 1 -b "$BUILDROOT_VERSION" \
+            https://github.com/buildroot/buildroot.git ../br
+
+      - name: Cache downloads and compiler cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/br-dl
+            ~/.buildroot-ccache
+          key: br-${{ env.BUILDROOT_VERSION }}-${{ hashFiles('buildroot/configs/*') }}-${{ github.run_id }}
+          restore-keys: |
+            br-${{ env.BUILDROOT_VERSION }}-${{ hashFiles('buildroot/configs/*') }}-
+            br-${{ env.BUILDROOT_VERSION }}-
+
+      - name: Configure
+        run: |
+          make -C ../br O="$PWD/../out" BR2_EXTERNAL="$PWD/buildroot" \
+            BR2_DL_DIR="$HOME/br-dl" kegs_rpi4_defconfig
+
+      - name: Build
+        run: |
+          make -C ../out BR2_DL_DIR="$HOME/br-dl" 2>&1 | tee ../build.log \
+            | grep --line-buffered '^>>>'
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Show build log tail on failure
+        if: failure()
+        run: tail -200 ../build.log
+
+      - name: Compress image
+        run: |
+          mkdir dist
+          xz -T0 -9 -c ../out/images/sdcard.img > dist/kegs-pi4-sdcard.img.xz
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kegs-pi4-sdcard
+          path: dist/kegs-pi4-sdcard.img.xz
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/pi-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/kegs-pi4-sdcard.img.xz \
+            --title "KEGS for Raspberry Pi 4 ($GITHUB_REF_NAME)" \
+            --notes "SD card image that boots straight into KEGS. See buildroot/README.md."

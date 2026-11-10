@@ -1,0 +1,38 @@
+#!/bin/sh
+# Started by init on tty1 (see /etc/inittab).  Runs KEGS full screen on
+# the HDMI display, with its files on the KEGS partition (/kegs).
+
+AUDIO=vc4hdmi0
+KEGS_ARGS=
+
+# Optional settings from /kegs/kegs.env (KEY=value lines, may have CRLF)
+if [ -f /kegs/kegs.env ]; then
+	while IFS='=' read -r key val; do
+		val=$(printf '%s' "$val" | tr -d '\r')
+		case "$key" in
+		AUDIO)		AUDIO=$val ;;
+		KEGS_ARGS)	KEGS_ARGS=$val ;;
+		SDL_*)		export "$key=$val" ;;
+		esac
+	done < /kegs/kegs.env
+fi
+
+# ALSA: send sound to the chosen card (vc4hdmi0 = HDMI, Headphones = jack)
+export HOME=/tmp/kegs-home
+mkdir -p "$HOME"
+printf 'defaults.pcm.card %s\ndefaults.ctl.card %s\n' "$AUDIO" "$AUDIO" \
+	> "$HOME/.asoundrc"
+
+export SDL_VIDEODRIVER=kmsdrm
+export SDL_AUDIODRIVER=alsa
+
+if ! mountpoint -q /kegs; then
+	echo "KEGS partition (/kegs) is not mounted"
+	sleep 10
+	exit 1
+fi
+cd /kegs || exit 1
+
+# shellcheck disable=SC2086
+/usr/bin/sdlkegs $KEGS_ARGS > /tmp/kegs.log 2>&1
+sync

@@ -13,7 +13,7 @@
 // SDL2 video/keyboard/mouse driver for KEGS.
 // Lets KEGS run without X11: e.g. on a Raspberry Pi console using the
 //  SDL2 KMSDRM backend, or under Wayland/X11 via SDL.
-// Modeled after xdriver.c.  Sound still uses pulseaudio_driver.c.
+// Modeled after xdriver.c.  Sound uses sdlaudio_driver.c.
 
 #include <SDL.h>
 #include <stdlib.h>

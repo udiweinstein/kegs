@@ -8,8 +8,8 @@ include vars
 
 # Locate the SDK and Swift toolchain via xcrun, so the build works with
 # either full Xcode or just the Command Line Tools, wherever installed.
-MAC_SDK := $(shell xcrun --sdk macosx --show-sdk-path)
-SWIFT_LIBDIR := $(dir $(shell xcrun -f swift))../lib/swift/macosx
+MAC_SDK := $(shell xcrun --sdk macosx --show-sdk-path 2>/dev/null)
+SWIFT_LIBDIR := $(dir $(shell xcrun -f swift 2>/dev/null))../lib/swift/macosx
 include ldvars
 
 .SUFFIXES: .dep .proto

@@ -1,0 +1,35 @@
+################################################################################
+#
+# kegs
+#
+################################################################################
+
+# Built from this repository's own source tree (the directory above
+# buildroot/), so every image contains exactly the checked-out KEGS.
+KEGS_VERSION = local
+KEGS_SITE = $(BR2_EXTERNAL_KEGS_PATH)/..
+KEGS_SITE_METHOD = local
+KEGS_LICENSE = GPL-3.0
+KEGS_LICENSE_FILES = LICENSE
+KEGS_DEPENDENCIES = sdl2
+# Don't copy Buildroot output dirs, Mac app bundles or disk images
+KEGS_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS = \
+	--exclude buildroot --exclude output --exclude 'output-*' \
+	--exclude '*.app' --exclude '*.o' --exclude /sdlkegs \
+	--exclude '*.gz' --exclude '*.dsk' \
+	--exclude '*.2mg' --exclude '*.po' --exclude '*.woz'
+
+define KEGS_BUILD_CMDS
+	rm -f $(@D)/src/vars
+	ln -s vars_linux_sdl $(@D)/src/vars
+	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D)/src \
+		CC="$(TARGET_CC) $(TARGET_CFLAGS)" \
+		SDL2_CONFIG="$(STAGING_DIR)/usr/bin/sdl2-config" \
+		sdlkegs
+endef
+
+define KEGS_INSTALL_TARGET_CMDS
+	$(INSTALL) -D -m 0755 $(@D)/sdlkegs $(TARGET_DIR)/usr/bin/sdlkegs
+endef
+
+$(eval $(generic-package))

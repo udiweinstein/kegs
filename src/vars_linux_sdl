@@ -1,13 +1,17 @@
 
-# Linux build using SDL2 (no X11 needed: runs on the console via KMSDRM,
-#  e.g. Raspberry Pi OS Lite, as well as under X11/Wayland).
+# Linux build using SDL2 (no X11 or PulseAudio needed: runs on the console
+#  via KMSDRM and plays sound through SDL, which uses ALSA directly on a
+#  minimal system), e.g. Raspberry Pi OS Lite or the Buildroot image in
+#  ../buildroot, as well as under X11/Wayland desktops.
 # Use: cd src; rm -f vars; ln -s vars_linux_sdl vars; make
+# For cross builds, set SDL2_CONFIG to the target's sdl2-config.
+SDL2_CONFIG ?= sdl2-config
 TARGET = sdlkegs
-OBJECTS1 = pulseaudio_driver.o sdl2driver.o
-CCOPTS = -O2 -Wall -fomit-frame-pointer -DPULSE_AUDIO $(shell sdl2-config --cflags)
+OBJECTS1 = sdlaudio_driver.o sdl2driver.o
+CCOPTS = -O2 -Wall -fomit-frame-pointer -DSDL_AUDIO $(shell $(SDL2_CONFIG) --cflags)
 NAME = sdlkegs
 LD = $(CC)
-EXTRA_LIBS = $(shell sdl2-config --libs) -lpulse -lm
+EXTRA_LIBS = $(shell $(SDL2_CONFIG) --libs) -lm
 EXTRA_SPECIALS =
 
 XOPTS =

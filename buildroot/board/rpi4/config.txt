@@ -1,0 +1,25 @@
+# KEGS Apple IIgs - Raspberry Pi 4 boot configuration
+start_file=start4.elf
+fixup_file=fixup4.dat
+kernel=Image
+arm_64bit=1
+
+# Boot fast and quietly
+disable_splash=1
+boot_delay=0
+avoid_warnings=1
+
+# KMS graphics driver: SDL2 draws straight to the screen with it
+dtoverlay=vc4-kms-v3d
+max_framebuffers=2
+disable_overscan=1
+
+# Analog audio on the 3.5mm jack (HDMI audio comes with vc4-kms-v3d)
+dtparam=audio=on
+
+# Serial console on GPIO 14/15 (pins 8/10) for debugging
+dtoverlay=miniuart-bt
+enable_uart=1
+
+# Uncomment to force HDMI output even when no screen is detected at boot
+#hdmi_force_hotplug=1

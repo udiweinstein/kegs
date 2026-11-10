@@ -1,0 +1,9 @@
+config BR2_PACKAGE_KEGS
+	bool "kegs"
+	depends on BR2_PACKAGE_SDL2
+	help
+	  KEGS Apple IIgs emulator, SDL2 build (sdlkegs).  Built from
+	  the KEGS source tree this external tree lives in.
+
+comment "kegs needs SDL2"
+	depends on !BR2_PACKAGE_SDL2

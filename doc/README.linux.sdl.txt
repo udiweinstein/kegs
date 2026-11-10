@@ -7,7 +7,7 @@ needed.  It also works under X11 or Wayland desktops.
 
 Install build packages (Raspberry Pi OS / Debian / Ubuntu):
 
-	sudo apt install build-essential libsdl2-dev libpulse-dev
+	sudo apt install build-essential libsdl2-dev
 
 Build:
 
@@ -33,9 +33,11 @@ Raspberry Pi notes:
 - Your user must be in the "video" and "input" groups to use the
   display and keyboard from the console:
 	sudo usermod -aG video,input $USER    (then log out/in)
-- Sound uses PulseAudio.  On Pi OS Lite install it with
-	sudo apt install pulseaudio      (or pipewire-pulse)
-  or run with "-audio 0" to disable sound.
+- Sound goes through SDL, which uses ALSA directly on Pi OS Lite and
+  PulseAudio/PipeWire on a desktop.  Your user must be in the "audio"
+  group on the console.  Run with "-audio 0" to disable sound.
+- For an SD card that boots straight into KEGS with no Pi OS at all,
+  see buildroot/README.md.
 
 Keys: the emulated keyboard follows the physical US key positions, so
 it works the same with any host keyboard layout.  Left-Alt is

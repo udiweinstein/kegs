@@ -102,3 +102,8 @@ int pulse_audio_init();
 int pulse_audio_send_audio(byte *ptr, int in_size);
 void pulse_audio_shutdown(void);
 
+/* Prototypes for sdlaudio_driver.c functions */
+int sdlaudio_init(void);
+int sdlaudio_send_audio(byte *ptr, int in_size);
+void sdlaudio_shutdown(void);
+
