@@ -61,3 +61,16 @@ the serial port (GPIO 14/15, 115200 baud).
 * `package/kegs/` – builds `sdlkegs` from this repository's `src/`
 * `board/rpi4/` – `config.txt`, kernel command line, partition layout,
   start-up script (`rootfs-overlay/usr/bin/kegs-start`)
+
+## Building on a Mac (fast rebuilds)
+
+Install [OrbStack](https://orbstack.dev) (or Docker Desktop) once and turn
+off its "Start at login".  Then, from the repository folder:
+
+    ./buildroot/build-on-mac.sh
+
+The first build takes about 30-45 minutes; after a KEGS change only KEGS
+is rebuilt (1-2 minutes).  The image is written to
+`sdcard/kegs-pi4-sdcard.img`.  The script starts OrbStack if needed and
+quits it again at the end.  `./buildroot/build-on-mac.sh clean` deletes
+the build files (~15-20 GB).
