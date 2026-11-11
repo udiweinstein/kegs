@@ -21,7 +21,7 @@ d.rounded_rectangle((210, 190, 814, 834), 40, fill=(48, 50, 58, 255))
 d.rectangle((370, 190, 700, 420), fill=(190, 195, 205, 255))      # shutter
 d.rectangle((560, 225, 640, 385), fill=(48, 50, 58, 255))         # shutter window
 d.rounded_rectangle((290, 500, 734, 834), 20, fill=(245, 243, 236, 255))  # label
-for y in range(570, 800, 48):
+for y in range(650, 810, 48):
     d.line((320, y, 704, y), fill=(170, 190, 230, 255), width=4)
 font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 120)
 d.text((512, 560), "KEGS", font=font, fill=(30, 55, 130, 255), anchor='mm')
