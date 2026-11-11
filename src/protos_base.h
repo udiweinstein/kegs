@@ -91,6 +91,7 @@ int adb_is_option_key_down(void);
 void adb_increment_speed(void);
 void adb_update_c025_mask(Kimage *kimage_ptr, word32 new_c025_val, word32 mask);
 int adb_ascii_to_a2code(int unicode_c, int a2code, int *shift_down_ptr);
+int adb_hebrew_key(int a2code);
 void adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c, int is_up);
 void adb_maybe_virtual_key_update(int a2code, int is_up);
 void adb_virtual_key_update(int a2code, int is_up);

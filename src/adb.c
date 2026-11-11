@@ -145,6 +145,7 @@ int	g_mouse_ctl_addr = 3;		/* ADB ucontroller's mouse addr*/
 word32	g_virtual_key_up[4];	/* bitmask of all possible 128 a2codes */
 				/* indicates which keys are up=1 by bit */
 int	g_rawa2_to_a2code[128];
+extern int g_cfg_hebrew_font;
 
 int	g_keypad_key_is_down[10] = { 0 };/* List from 0-9 of which keypad */
 					/*  keys are currently pressed */
@@ -1976,6 +1977,48 @@ adb_ascii_to_a2code(int unicode_c, int a2code, int *shift_down_ptr)
 	return a2code;		// Not found, use default a2code
 }
 
+// Israeli Hebrew keyboard (SI-1452) for the Hebrew //e character set:
+//  physical key (ADB code) -> character to send.  Hebrew letters are
+//  0x60 + letter: alef='`', bet='a', ... shin='y', tav='z'.
+int
+adb_hebrew_key(int a2code)
+{
+	switch(a2code) {
+	case 0x0c: return '/';		// Q
+	case 0x0d: return '\'';		// W
+	case 0x0e: return 'w';		// E  qof
+	case 0x0f: return 'x';		// R  resh
+	case 0x11: return '`';		// T  alef
+	case 0x10: return 'h';		// Y  tet
+	case 0x20: return 'e';		// U  vav
+	case 0x22: return 'o';		// I  final nun
+	case 0x1f: return 'm';		// O  final mem
+	case 0x23: return 't';		// P  pe
+	case 0x00: return 'y';		// A  shin
+	case 0x01: return 'c';		// S  dalet
+	case 0x02: return 'b';		// D  gimel
+	case 0x03: return 'k';		// F  kaf
+	case 0x05: return 'r';		// G  ayin
+	case 0x04: return 'i';		// H  yod
+	case 0x26: return 'g';		// J  het
+	case 0x28: return 'l';		// K  lamed
+	case 0x25: return 'j';		// L  final kaf
+	case 0x29: return 's';		// ;  final pe
+	case 0x27: return ',';		// '
+	case 0x06: return 'f';		// Z  zayin
+	case 0x07: return 'q';		// X  samekh
+	case 0x08: return 'a';		// C  bet
+	case 0x09: return 'd';		// V  he
+	case 0x0b: return 'p';		// B  nun
+	case 0x2d: return 'n';		// N  mem
+	case 0x2e: return 'v';		// M  tsadi
+	case 0x2b: return 'z';		// ,  tav
+	case 0x2f: return 'u';		// .  final tsadi
+	case 0x2c: return '.';		// /
+	}
+	return 0;
+}
+
 void
 adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 		int is_up)
@@ -1997,13 +2040,6 @@ adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 	a2code = raw_a2code;
 	restore_c025_val = 0;
 	restorek_c025_val = 0;
-	if((unicode_c >= 0x05d0) && (unicode_c <= 0x05ea)) {
-		// Hebrew letter from the Mac's Hebrew keyboard: send the
-		//  Hebrew //e code for it, 0x60 + letter (alef='`', bet='a',
-		//  ... tav='z'), like Virtual ][ does.  The letter positions
-		//  then follow the Mac's Hebrew layout.
-		unicode_c = 0x60 + (unicode_c - 0x05d0);
-	}
 	if(unicode_c > 0) {
 		// To enable international keyboards, ignore a2code, look up
 		//  what U.S. keycode would be and return that
@@ -2017,6 +2053,36 @@ adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 							new_shift;
 		}
 		if(!is_up) {
+			g_rawa2_to_a2code[raw_a2code & 0x7f] = a2code;
+		}
+	}
+
+	/* Hebrew font: the keyboard is an Israeli (SI-1452) Hebrew //e */
+	/*  keyboard, by physical key position, whatever the host's own */
+	/*  keyboard language: the A key types shin, T types alef, etc. */
+	/*  Shift, Caps Lock, Ctrl, Open/Closed-Apple keep plain English */
+	if(g_cfg_hebrew_font && !is_up) {
+		word32	mods;
+		int	heb;
+
+		mods = g_c025_val;
+		if(restore_c025_val) {
+			mods = restore_c025_val & 0xff;	// Real modifier state
+		}
+		heb = 0;
+		if((mods & 0xc7) == 0) {	// No Shift/Ctrl/Caps/Opt/Cmd
+			heb = adb_hebrew_key(raw_a2code);
+		}
+		if(heb) {
+			if(restore_c025_val) {
+				// Undo a shift change made for unicode above
+				g_c025_val = restore_c025_val & 0xff;
+				kimage_ptr->c025_val = restorek_c025_val;
+				restore_c025_val = 0;
+			}
+			new_shift = 0;
+			a2code = adb_ascii_to_a2code(heb, raw_a2code,
+								&new_shift);
 			g_rawa2_to_a2code[raw_a2code & 0x7f] = a2code;
 		}
 	}

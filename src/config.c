@@ -251,7 +251,7 @@ Cfg_menu g_cfg_rom_menu[] = {
 
 Cfg_menu g_cfg_charrom_menu[] = {
 { "Character ROM File Selection", g_cfg_charrom_menu, 0, 0, CFGTYPE_MENU },
-{ "Built-in Font,0,US English (standard),1,Hebrew (lowercase = Hebrew letters)",
+{ "Built-in Font,0,US English (standard),1,Hebrew (Israeli keyboard)",
 	KNMP(g_cfg_hebrew_font), CFGTYPE_INT },
 { "Character ROM File", KNMP(g_cfg_charrom_path), CFGTYPE_FILE },
 { "Character Set,0,0x00 US Enhanced,1,0x01 US Un-enhanced,"
