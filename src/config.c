@@ -77,7 +77,7 @@ extern char *g_cfg_wifi_ssid;
 extern char *g_cfg_wifi_pass;
 extern int g_cfg_net_smb;
 extern int g_cfg_hires_mono;
-extern char *g_cfg_net_share_dir;
+extern char *g_cfg_disks_dir;
 extern char g_compile_time[];
 
 int g_config_control_panel = 0;
@@ -343,7 +343,7 @@ Cfg_menu g_cfg_net_menu[] = {
 { "   ", (void *)cfg_net_pick5, 0, 0, CFGTYPE_FUNC },
 { "", 0, 0, 0, 0 },
 { "File sharing (SMB),0,Off,1,On", KNMP(g_cfg_net_smb), CFGTYPE_INT },
-{ "Shared folder   ", KNMP(g_cfg_net_share_dir), CFGTYPE_STR },
+{ "Shared folder   ", (void *)cfg_net_share_status, 0, 0, CFGTYPE_FUNC },
 { "  Status        ", (void *)cfg_net_smb_status, 0, 0, CFGTYPE_FUNC },
 { "  Windows       ", (void *)cfg_net_smb_windows, 0, 0, CFGTYPE_FUNC },
 { "  Mac           ", (void *)cfg_net_smb_mac, 0, 0, CFGTYPE_FUNC },
@@ -357,6 +357,7 @@ Cfg_menu g_cfg_net_menu[] = {
 Cfg_menu g_cfg_main_menu[] = {
 { "KEGS Configuration", g_cfg_main_menu, 0, 0, CFGTYPE_MENU },
 { "Disk Configuration", g_cfg_disk_menu, 0, 0, CFGTYPE_MENU },
+{ "Disk images folder", KNMP(g_cfg_disks_dir), CFGTYPE_STR },
 { "Joystick Configuration", g_cfg_joystick_menu, 0, 0, CFGTYPE_MENU },
 { "ROM File Selection", g_cfg_rom_menu, 0, 0, CFGTYPE_MENU },
 { "Character ROM Selection", g_cfg_charrom_menu, 0, 0, CFGTYPE_MENU },

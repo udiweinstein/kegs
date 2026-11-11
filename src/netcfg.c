@@ -24,7 +24,6 @@
 char	*g_cfg_wifi_ssid = "";
 char	*g_cfg_wifi_pass = "";
 int	g_cfg_net_smb = 0;
-char	*g_cfg_net_share_dir = "disks";
 
 #ifdef __linux__
 
@@ -113,27 +112,17 @@ net_run(const char *a1, const char *a2, const char *a3, const char *a4,
 	(void)waitpid(pid, 0, 0);
 }
 
-// Folder to share: g_cfg_net_share_dir, relative to config.kegs's folder
+// Folder to share: the disk images folder (F4 main menu), without '/'
 static void
 net_share_dir(char *buf, int len)
 {
-	char	*slash;
+	int	cur;
 
-	if(g_cfg_net_share_dir[0] == '/') {
-		cfg_strncpy(buf, g_cfg_net_share_dir, len);
-		return;
+	kegs_disks_dir(buf, len);
+	cur = (int)strlen(buf);
+	if((cur > 1) && (buf[cur - 1] == '/')) {
+		buf[cur - 1] = 0;
 	}
-	cfg_strncpy(buf, g_config_kegs_name, len);
-	slash = strrchr(buf, '/');
-	if(slash) {
-		slash[1] = 0;
-	} else {
-		if(!getcwd(buf, len - 2)) {
-			buf[0] = 0;
-		}
-		cfg_strlcat(buf, "/", len);
-	}
-	cfg_strlcat(buf, g_cfg_net_share_dir, len);
 }
 
 // Read /tmp/kegs-net/status (KEY=value lines); ask for a fresh one at
@@ -390,6 +379,18 @@ cfg_net_smb_mac(int get_status)
 	}
 	snprintf(buf, sizeof(buf), "smb://%s/disks", ip);
 	return net_dup(buf);
+}
+
+char *
+cfg_net_share_status(int get_status)
+{
+	char	dir[1024];
+
+	if(!get_status) {
+		return 0;
+	}
+	net_share_dir(dir, sizeof(dir));
+	return net_dup(dir);
 }
 
 char *
