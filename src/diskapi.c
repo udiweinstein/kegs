@@ -14,11 +14,14 @@
 //  list the disk images in the host's disk images folder, insert one
 //  into a drive, eject, and see what is in each drive.
 //
-// Call it with the 3 bytes $42,$58,$EA ("WDM $58" followed by NOP):
+// Call it with the 3 bytes $42,$EA,$D8 ("WDM $EA" followed by CLD):
 //	A = command, X/Y = address (low/high) of a parameter block in bank 0
 //	Returns A = result, carry clear = OK, carry set = error (A = code)
-// On a real 65C02 or 65816, $42,$58 is a 2-byte NOP and $EA a NOP, so a
-//  program can safely test for KEGS: LDA #0, call it, KEGS answers 'K'.
+// Safe everywhere, so a program can test for it: LDA #0, call, 'K' = yes.
+//  - real 65C02 / 65816: $42,$EA is a 2-byte NOP, then CLD
+//  - official KEGS and GSplus: WDM $EA,xx is their "detect" code, which
+//    they ignore without error (other WDM codes stop in the debugger)
+//  - other emulators: $42 is a 2-byte NOP on the 65C02
 //
 // Commands:
 //  0 ID	A='K' X=API version.  No parameter block.
@@ -407,7 +410,7 @@ dapi_drives(word32 blk)
 	return num;
 }
 
-// Called from do_wdm() for WDM $58,$EA
+// Called from do_wdm() for WDM $EA,$D8
 void
 disk_api_call()
 {

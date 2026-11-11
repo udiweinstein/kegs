@@ -1885,8 +1885,8 @@ do_wdm(word32 arg)
 		basic_let_trap();
 		return;
 	}
-	if(arg == 0xea58) {
-		// UDI: WDM $58,$EA: disk image API for YANC, see diskapi.c
+	if(arg == 0xd8ea) {
+		// UDI: WDM $EA,$D8: disk image API for YANC, see diskapi.c
 		disk_api_call();
 		return;
 	}
