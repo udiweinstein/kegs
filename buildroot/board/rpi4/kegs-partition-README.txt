@@ -17,6 +17,8 @@ F4 -> Network Configuration: join Wi-Fi and share the "disks" folder
 over the network (SMB), to copy disk images from a Mac or PC:
   Windows: \\<ip shown>\disks    Mac: smb://<ip shown>/disks
   user: kegs   password: apple2
+  On a Mac, run once in Terminal (else Finder hangs on "Connecting"):
+  printf '[default]\nprotocol_vers_map=6\n' | sudo tee /etc/nsmb.conf
 
 KEGS saves its settings to config.kegs on this partition (F4 -> Save
 changes to config.kegs).

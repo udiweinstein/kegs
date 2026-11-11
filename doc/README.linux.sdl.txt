@@ -89,6 +89,12 @@ to type on the other computer:
 	Windows:  \\<ip>\disks        (File Explorer address bar)
 	Mac:      smb://<ip>/disks    (Finder: Go -> Connect to Server)
 	user: kegs   password: apple2
+Mac only, once: the small ksmbd server does not speak the old SMB1, and
+macOS opens with SMB1 unless told not to, so Finder just hangs on
+"Connecting".  Run this once in Terminal on the Mac (SMB2/3 only, which
+Apple recommends anyway):
+	printf '[default]\nprotocol_vers_map=6\n' | sudo tee /etc/nsmb.conf
+Windows needs nothing.
 "Shared folder" is relative to the folder of config.kegs (default:
 disks).  Use "Save changes to config.kegs" in the main F4 menu to keep
 the settings.
