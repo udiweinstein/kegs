@@ -30,7 +30,9 @@
 //		+4 name length (up to 27), +5..+31 name.  A = number of
 //		entries.  The list is kept for MOUNT.
 //  2 MOUNT	block: +0 entry number (from the last LIST), +1 drive
-//		(slot*16 + drive, 0 = choose by image type).  A = drive used.
+//		(slot*16 + drive, 0 = choose by image type), +2 a drive
+//		that must not be used (the caller's own disk), 0 = none.
+//		A = drive used.
 //  3 EJECT	block: +1 drive (slot*16 + drive).
 //  4 DRIVES	block: +0,+1 buffer.  Fills 32-byte entries for S5D1, S5D2,
 //		S6D1, S6D2, S7D1-S7D8: +0 drive, +1 flags (1 = disk in it,
@@ -56,6 +58,7 @@ extern Engine_reg engine;
 #define DAPI_ERR_BADENTRY	3
 #define DAPI_ERR_BADDRIVE	4
 #define DAPI_ERR_NOTIMAGE	5
+#define DAPI_ERR_PROTECTED	6
 
 typedef struct dapi_entry {
 	char	*name;
@@ -272,9 +275,9 @@ dapi_list(word32 blk)
 	return num;
 }
 
-// First empty drive in slot, else drive 1
+// First empty drive in slot, else the first one that isn't protected
 static int
-dapi_free_drive(int slot)
+dapi_free_drive(int slot, int prot)
 {
 	Disk	*dsk;
 	int	drive, max_drive;
@@ -282,11 +285,17 @@ dapi_free_drive(int slot)
 	max_drive = (slot == 7) ? 8 : 2;
 	for(drive = 0; drive < max_drive; drive++) {
 		dsk = iwm_get_dsk_from_slot_drive(slot, drive);
-		if(dsk && (dsk->fd < 0)) {
+		if(dsk && (dsk->fd < 0) &&
+				(((slot << 4) | (drive + 1)) != prot)) {
 			return drive;
 		}
 	}
-	return 0;
+	for(drive = 0; drive < max_drive; drive++) {
+		if(((slot << 4) | (drive + 1)) != prot) {
+			return drive;
+		}
+	}
+	return -1;
 }
 
 static int
@@ -309,10 +318,11 @@ static int
 dapi_mount(word32 blk)
 {
 	char	path[1100];
-	int	idx, sd, slot, drive;
+	int	idx, sd, slot, drive, prot;
 
 	idx = get_memory_c(blk & 0xffff);
 	sd = get_memory_c((blk + 1) & 0xffff);
+	prot = get_memory_c((blk + 2) & 0xffff);
 	if((idx >= g_dapi_list_num) || g_dapi_list[idx].is_dir) {
 		return -DAPI_ERR_BADENTRY;
 	}
@@ -320,9 +330,14 @@ dapi_mount(word32 blk)
 							g_dapi_list[idx].name);
 	if(sd == 0) {
 		slot = cfg_guess_disk_slot(path, g_dapi_list[idx].size);
-		drive = dapi_free_drive(slot);
+		drive = dapi_free_drive(slot, prot);
+		if(drive < 0) {
+			return -DAPI_ERR_PROTECTED;
+		}
 	} else if(!dapi_check_drive(sd, &slot, &drive)) {
 		return -DAPI_ERR_BADDRIVE;
+	} else if(sd == prot) {
+		return -DAPI_ERR_PROTECTED;
 	}
 	printf("Disk API: insert %s into s%dd%d\n", path, slot, drive + 1);
 	insert_disk(slot, drive, path, 0, 0, -1, 0);
