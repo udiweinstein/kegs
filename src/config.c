@@ -76,6 +76,7 @@ extern const char g_kegs_fork_version_str[];
 extern char *g_cfg_wifi_ssid;
 extern char *g_cfg_wifi_pass;
 extern int g_cfg_net_smb;
+extern int g_cfg_hires_mono;
 extern char *g_cfg_net_share_dir;
 extern char g_compile_time[];
 
@@ -314,6 +315,8 @@ Cfg_menu g_cfg_serial_menu[] = {
 
 Cfg_menu g_cfg_video_menu[] = {
 { "Force X-windows display depth", KNMP(g_force_depth), CFGTYPE_INT },
+{ "Hi-Res display,0,Auto (IIgs Control Panel),1,Color,2,Monochrome",
+		KNMP(g_cfg_hires_mono), CFGTYPE_INT },
 { "Enable VOC,0,Disabled,1,Enabled", KNMP(g_voc_enable), CFGTYPE_INT },
 { "3200 Color Enable,0,Auto (Full if fast enough),1,Full (Update every line),"
 	"8,Off (Update video every 8 lines)",
@@ -1056,6 +1059,9 @@ cfg_int_update(int *iptr, int new_val)
 	}
 	if(iptr == &g_cfg_hebrew_font) {
 		prepare_a2_font();	// switch built-in font (overrides ROM file)
+	}
+	if(iptr == &g_cfg_hires_mono) {
+		video_force_reparse();	// redraw Hi-Res/Double Hi-Res now
 	}
 #ifdef __linux__
 	if(iptr == &g_cfg_net_smb) {

@@ -80,6 +80,7 @@ int	g_border_reparse = 0;
 
 int	g_use_dhr140 = 0;
 int	g_use_bw_hires = 0;
+int	g_cfg_hires_mono = 0;	// F4: 0 Auto (IIgs setting), 1 Color, 2 Mono
 
 int	g_vid_update_last_line = 0;
 int	g_video_save_all_stat_pos = 0;
@@ -1309,6 +1310,11 @@ video_hgr_line_segment(byte *slow_mem_ptr, word32 *wptr, int start_byte,
 
 	monochrome = filt_stat & (ALL_STAT_COLOR_C021 |
 						ALL_STAT_DIS_COLOR_DHIRES);
+	if(g_cfg_hires_mono == 1) {
+		monochrome = 0;		// F4: always color
+	} else if(g_cfg_hires_mono == 2) {
+		monochrome = 1;		// F4: always monochrome
+	}
 
 	prev_bits = 0;
 	if(start_byte) {
