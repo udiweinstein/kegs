@@ -72,6 +72,8 @@ extern word32 g_a2_screen_buffer_changed;
 
 extern int g_key_down;
 extern const char g_kegs_version_str[];
+extern const char g_kegs_fork_version_str[];
+extern char g_compile_time[];
 
 int g_config_control_panel = 0;
 char g_config_kegs_name[1024] = { 0 };
@@ -4554,7 +4556,14 @@ cfg_draw_menu()
 	match_found = 0;
 	print_eject_help = 0;
 	menu_line = g_menu_line;
-	cfg_printf("%s\n\n", menuptr[0].str);
+	if(menuptr == g_cfg_main_menu) {
+		// Title with version and build date ("Compiled: Mmm dd yyyy")
+		cfg_printf("%s  v%s %s  (%.11s)\n\n", menuptr[0].str,
+			g_kegs_version_str, g_kegs_fork_version_str,
+			&g_compile_time[10]);
+	} else {
+		cfg_printf("%s\n\n", menuptr[0].str);
+	}
 	while(line < 24) {
 		str = menuptr[line].str;
 		type = menuptr[line].cfgtype;

@@ -21,6 +21,12 @@ PERL = perl
 
 all: $(TARGET)
 
+# Rebuild compile_time.o every time, so the build date shown in the F4
+#  config title is always the date of this build
+compile_time.o: FORCE
+FORCE:
+.PHONY: FORCE
+
 specials:
 
 specials_clean:
@@ -47,7 +53,8 @@ kegsmac: $(OBJECTS) $(OBJECTS1) compile_time.o $(SWIFTOBJS)
 	echo "APPL????" > ../KEGSMAC.app/Contents/PkgInfo
 	cp -f Info.plist ../KEGSMAC.app/Contents/
 	cp -f $(PROJROOT)/lib/MainMenu.nib ../KEGSMAC.app/Contents/Resources/Base.lproj/
-	#cp -f $(PROJROOT)/lib/kegsicon.icns ../KEGSMAC.app/Contents/Resources/
+	cp -f $(PROJROOT)/lib/kegsudi.icns ../KEGSMAC.app/Contents/Resources/
+	touch ../KEGSMAC.app
 	#cp -f $(PROJROOT)/lib/2mg.icns ../KEGSMAC.app/Contents/Resources/
 	#cp -f $(PROJROOT)/lib/525.icns ../KEGSMAC.app/Contents/Resources/
 	#touch '../KEGSMAC.app/Icon?'

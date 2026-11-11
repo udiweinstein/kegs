@@ -82,6 +82,9 @@ int	g_emul_6502_ind_page_cross_bug = 0;
 
 int	g_config_iwm_vbl_count = 0;
 const char g_kegs_version_str[] = "1.33";
+// Version of Udi's KEGS fork (shown in the F4 config title): bump it
+//  when making a new release
+const char g_kegs_fork_version_str[] = "udi-1";
 
 dword64	g_last_vbl_dfcyc = 0;
 dword64	g_cur_dfcyc = 1;
