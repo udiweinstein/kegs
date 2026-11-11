@@ -1,68 +1,30 @@
-import re, sys
-from PIL import Image, ImageDraw, ImageFilter
-src = sys.argv[1]
-def load(p):
-    rows = re.findall(r'\{([^}]*)\}', open(p).read())
-    return [[int(x, 16) for x in r.split(',')] for r in rows]
-font = load(src + '/kegsfont.h')        # 256 entries
-heb = load(src + '/hebfont.h')          # 27 entries, 0x60..0x7a
-
+# Draws the KEGSMAC app icon (3.5" floppy with a KEGS label) and writes
+# lib/kegsudi.icns.  Run from the repository root:  python3 tools/make_icon.py
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 S = 1024
 img = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-
-def rrect(d, box, r, **kw): d.rounded_rectangle(box, r, **kw)
-
-# drop shadow
 sh = Image.new('RGBA', (S, S), (0, 0, 0, 0))
 ImageDraw.Draw(sh).rounded_rectangle((110, 130, 914, 934), 180, fill=(0, 0, 0, 110))
 img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(24)))
-
-d = ImageDraw.Draw(img)
-# platinum case (vertical gradient)
-case = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-cd = ImageDraw.Draw(case)
+# blue rounded-square background with a vertical gradient
+g = Image.new('RGBA', (S, S)); gd = ImageDraw.Draw(g)
+top, bot = (70, 110, 200), (30, 55, 130)
 for y in range(100, 925):
-    t = (y - 100) / 825
-    c = (int(232 - 40 * t), int(228 - 42 * t), int(214 - 44 * t), 255)
-    cd.line((100, y, 924, y), fill=c)
-mask = Image.new('L', (S, S), 0)
-ImageDraw.Draw(mask).rounded_rectangle((100, 100, 924, 924), 180, fill=255)
-img.paste(case, (0, 0), mask)
+    t = (y - 100) / 824
+    gd.line((100, y, 924, y), fill=tuple(int(a + (b - a) * t) for a, b in zip(top, bot)) + (255,))
+m = Image.new('L', (S, S), 0)
+ImageDraw.Draw(m).rounded_rectangle((100, 100, 924, 924), 180, fill=255)
+img.paste(g, (0, 0), m)
 d = ImageDraw.Draw(img)
-d.rounded_rectangle((100, 100, 924, 924), 180, outline=(150, 145, 130, 255), width=6)
-
-# screen bezel and glass
-d.rounded_rectangle((180, 170, 844, 700), 70, fill=(70, 68, 62, 255))
-d.rounded_rectangle((215, 205, 809, 665), 50, fill=(12, 22, 14, 255))
-
-# pixel text on the screen (green phosphor)
-G = (90, 255, 120, 255)
-def glyph(rows, x, y, px):
-    for r, bits in enumerate(rows):
-        for c in range(7):
-            if bits & (0x80 >> c):
-                d.rectangle((x + c * px, y + r * px, x + (c + 1) * px - 2, y + (r + 1) * px - 2), fill=G)
-px = 11
-def ascii_rows(ch): return font[0x80 + (ord(ch) & 0x3f) + (0x00 if ord(ch) >= 0x40 else 0x00)] if False else font[0x80 | (ord(ch) & 0x7f)]
-# line 1: ]KEGS
-x0, y0 = 250, 290
-for i, ch in enumerate(']KEGS'):
-    glyph(ascii_rows(ch), x0 + i * 8 * px, y0, px)
-# line 2: Hebrew "שלום" right-to-left, right-aligned
-word = [0x79, 0x6c, 0x65, 0x6d]           # ש ל ו ם
-xr = 250 + 6*8*11 - 8*11
-for i, code in enumerate(word):
-    glyph(heb[code - 0x60], xr - (i + 1) * 8 * px, y0 + 12 * px, px)
-# cursor block
-d.rectangle((x0 + 5 * 8 * px, y0, x0 + 5 * 8 * px + 7 * px - 2, y0 + 8 * px - 2), fill=G)
-
-# screen glare
-gl = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-ImageDraw.Draw(gl).polygon([(230, 215), (520, 215), (330, 650), (230, 650)], fill=(255, 255, 255, 18))
-img.alpha_composite(gl)
-d = ImageDraw.Draw(img)
-
-# front: drive slot and power LED
-d.rounded_rectangle((520, 770, 820, 800), 14, fill=(95, 92, 84, 255))
-d.ellipse((215, 765, 255, 805), fill=(60, 220, 90, 255))
-img.save('icon_1024.png')
+# the floppy
+d.rounded_rectangle((210, 190, 814, 834), 40, fill=(48, 50, 58, 255))
+d.rectangle((370, 190, 700, 420), fill=(190, 195, 205, 255))      # shutter
+d.rectangle((560, 225, 640, 385), fill=(48, 50, 58, 255))         # shutter window
+d.rounded_rectangle((290, 500, 734, 834), 20, fill=(245, 243, 236, 255))  # label
+for y in range(570, 800, 48):
+    d.line((320, y, 704, y), fill=(170, 190, 230, 255), width=4)
+font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 120)
+d.text((512, 560), "KEGS", font=font, fill=(30, 55, 130, 255), anchor='mm')
+d.rectangle((230, 770, 262, 802), fill=(30, 30, 36, 255))         # write-protect hole
+img.save('lib/kegsudi.icns',
+	sizes=[(16, 16), (32, 32), (64, 64), (128, 128), (256, 256), (512, 512), (1024, 1024)])
