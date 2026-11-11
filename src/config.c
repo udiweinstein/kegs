@@ -73,6 +73,10 @@ extern word32 g_a2_screen_buffer_changed;
 extern int g_key_down;
 extern const char g_kegs_version_str[];
 extern const char g_kegs_fork_version_str[];
+extern char *g_cfg_wifi_ssid;
+extern char *g_cfg_wifi_pass;
+extern int g_cfg_net_smb;
+extern char *g_cfg_net_share_dir;
 extern char g_compile_time[];
 
 int g_config_control_panel = 0;
@@ -320,6 +324,33 @@ Cfg_menu g_cfg_video_menu[] = {
 { 0, 0, 0, 0, 0 },
 };
 
+#ifdef __linux__
+// Network: Wi-Fi and SMB file sharing (see netcfg.c and kegs-net.sh)
+Cfg_menu g_cfg_net_menu[] = {
+{ "Network Configuration", g_cfg_net_menu, 0, 0, CFGTYPE_MENU },
+{ "Wi-Fi network   ", KNMP(g_cfg_wifi_ssid), CFGTYPE_STR },
+{ "Wi-Fi password  ", KNMP(g_cfg_wifi_pass), CFGTYPE_STR },
+{ "Connect to Wi-Fi", (void *)cfg_net_connect, 0, 0, CFGTYPE_FUNC },
+{ "Scan for networks", (void *)cfg_net_scan, 0, 0, CFGTYPE_FUNC },
+{ "   ", (void *)cfg_net_pick0, 0, 0, CFGTYPE_FUNC },
+{ "   ", (void *)cfg_net_pick1, 0, 0, CFGTYPE_FUNC },
+{ "   ", (void *)cfg_net_pick2, 0, 0, CFGTYPE_FUNC },
+{ "   ", (void *)cfg_net_pick3, 0, 0, CFGTYPE_FUNC },
+{ "   ", (void *)cfg_net_pick4, 0, 0, CFGTYPE_FUNC },
+{ "   ", (void *)cfg_net_pick5, 0, 0, CFGTYPE_FUNC },
+{ "", 0, 0, 0, 0 },
+{ "File sharing (SMB),0,Off,1,On", KNMP(g_cfg_net_smb), CFGTYPE_INT },
+{ "Shared folder   ", KNMP(g_cfg_net_share_dir), CFGTYPE_STR },
+{ "  Status        ", (void *)cfg_net_smb_status, 0, 0, CFGTYPE_FUNC },
+{ "  Windows       ", (void *)cfg_net_smb_windows, 0, 0, CFGTYPE_FUNC },
+{ "  Mac           ", (void *)cfg_net_smb_mac, 0, 0, CFGTYPE_FUNC },
+{ "IP address      ", (void *)cfg_net_ip, 0, 0, CFGTYPE_FUNC },
+{ "", 0, 0, 0, 0 },
+{ "Back to Main Config", g_cfg_main_menu, 0, 0, CFGTYPE_MENU },
+{ 0, 0, 0, 0, 0 },
+};
+#endif
+
 Cfg_menu g_cfg_main_menu[] = {
 { "KEGS Configuration", g_cfg_main_menu, 0, 0, CFGTYPE_MENU },
 { "Disk Configuration", g_cfg_disk_menu, 0, 0, CFGTYPE_MENU },
@@ -328,6 +359,9 @@ Cfg_menu g_cfg_main_menu[] = {
 { "Character ROM Selection", g_cfg_charrom_menu, 0, 0, CFGTYPE_MENU },
 { "Serial Port Configuration", g_cfg_serial_menu, 0, 0, CFGTYPE_MENU },
 { "Video Setting", g_cfg_video_menu, 0, 0, CFGTYPE_MENU },
+#ifdef __linux__
+{ "Network Configuration", g_cfg_net_menu, 0, 0, CFGTYPE_MENU },
+#endif
 { "Auto-update config.kegs,0,Manual,1,Immediately",
 		KNMP(g_config_kegs_auto_update), CFGTYPE_INT },
 { "Speed,0,Unlimited,1,1.0MHz,2,2.8MHz,3,8.0MHz (Zip)",
@@ -605,6 +639,9 @@ config_init()
 	}
 
 	config_parse_config_kegs_file();
+#ifdef __linux__
+	cfg_net_boot();		// Wi-Fi / file sharing, in the background
+#endif
 }
 
 void
@@ -1020,6 +1057,11 @@ cfg_int_update(int *iptr, int new_val)
 	if(iptr == &g_cfg_hebrew_font) {
 		prepare_a2_font();	// switch built-in font (overrides ROM file)
 	}
+#ifdef __linux__
+	if(iptr == &g_cfg_net_smb) {
+		cfg_net_smb_changed();	// start/stop SMB file sharing
+	}
+#endif
 
 	for(i = 0; i < 2; i++) {
 		remote_changed = 0;
@@ -3299,6 +3341,9 @@ cfg_parse_menu(Cfg_menu *menuptr, int menu_pos, int highlight_pos, int change)
 			str = &(g_cfg_opts_str[0]);
 			(void)cfg_get_disk_name(str, CFG_PATH_MAX, type_ext, 1);
 			str = cfg_shorten_filename(str, 68);
+		} else if((type == CFGTYPE_STR) && curstr && curstr[0] &&
+				(menuptr->ptr == (void *)&g_cfg_wifi_pass)) {
+			str = "********";	// Don't show the Wi-Fi password
 		} else if ((type == CFGTYPE_FILE) || (type == CFGTYPE_STR)) {
 			str = cfg_shorten_filename(curstr, 68);
 		} else if(type == CFGTYPE_FUNC) {
@@ -4742,6 +4787,17 @@ cfg_control_panel_update1()
 	int	*iptr;
 	int	type, key;
 
+#ifdef __linux__
+	if((g_menuptr == g_cfg_net_menu) && !g_cfg_edit_ptr) {
+		// Network status lines change on their own: redraw about
+		//  twice a second
+		static int net_redraw_count = 0;
+		if(++net_redraw_count >= 30) {
+			net_redraw_count = 0;
+			g_menu_redraw_needed = 1;
+		}
+	}
+#endif
 	while(g_config_control_panel) {
 		if(g_menu_redraw_needed) {
 			cfg_draw_menu();

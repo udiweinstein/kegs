@@ -30,6 +30,7 @@ endef
 
 define KEGS_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/sdlkegs $(TARGET_DIR)/usr/bin/sdlkegs
+	$(INSTALL) -D -m 0755 $(@D)/src/kegs-net.sh $(TARGET_DIR)/usr/bin/kegs-net
 endef
 
 $(eval $(generic-package))

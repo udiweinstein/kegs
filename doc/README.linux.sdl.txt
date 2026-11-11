@@ -78,3 +78,23 @@ After pushing changes from the Mac, on the Pi:
 
 pi-update.sh pulls from GitHub and rebuilds (about a minute on a Pi 4).
 Run sdlkegs from the Pi's own screen and keyboard, not over ssh.
+
+Network: Wi-Fi and file sharing (F4 -> Network Configuration)
+-------------------------------------------------------------
+
+Linux only.  The menu lets you pick a Wi-Fi network (Scan, then Enter
+on a network), type its password, Connect, and switch SMB file sharing
+of the disks folder On/Off.  It shows the IP addresses and the address
+to type on the other computer:
+	Windows:  \\<ip>\disks        (File Explorer address bar)
+	Mac:      smb://<ip>/disks    (Finder: Go -> Connect to Server)
+	user: kegs   password: apple2
+"Shared folder" is relative to the folder of config.kegs (default:
+disks).  Use "Save changes to config.kegs" in the main F4 menu to keep
+the settings.
+
+The work is done by src/kegs-net.sh in the background.  On Raspberry Pi
+OS run this once first (installs ksmbd-tools, allows starting the file
+server, sets the Wi-Fi country):
+	~/kegs/pi-network-setup.sh
+On the Buildroot SD image everything is already included.

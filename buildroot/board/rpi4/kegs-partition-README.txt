@@ -13,7 +13,13 @@ Inside KEGS:
   F10        quick disk swap
   F1 / F2    Open-Apple / Option (also Left-Alt / Right-Alt)
 
-KEGS saves its settings to config.kegs on this partition.
+F4 -> Network Configuration: join Wi-Fi and share the "disks" folder
+over the network (SMB), to copy disk images from a Mac or PC:
+  Windows: \\<ip shown>\disks    Mac: smb://<ip shown>/disks
+  user: kegs   password: apple2
+
+KEGS saves its settings to config.kegs on this partition (F4 -> Save
+changes to config.kegs).
 
 Optional: create a file named kegs.env here to change settings
 at start-up, one per line, for example:
