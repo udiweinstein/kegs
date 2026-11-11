@@ -137,6 +137,8 @@ int g_cfg_charrom_pos = 0;
 int g_cfg_hebrew_font = 0;		// 1: built-in Hebrew //e character set
 char *g_cfg_file_def_name = "Undefined";
 char **g_cfg_file_strptr = 0;
+int	g_cfg_file_dirsel = 0;		// File selection picks a folder
+char	g_cfg_file_dirsel_start[1024];
 int g_cfg_file_min_size = 1024;
 int g_cfg_file_max_size = 2047*1024*1024;
 int	g_cfg_edit_type = 0;
@@ -357,7 +359,7 @@ Cfg_menu g_cfg_net_menu[] = {
 Cfg_menu g_cfg_main_menu[] = {
 { "KEGS Configuration", g_cfg_main_menu, 0, 0, CFGTYPE_MENU },
 { "Disk Configuration", g_cfg_disk_menu, 0, 0, CFGTYPE_MENU },
-{ "Disk images folder", KNMP(g_cfg_disks_dir), CFGTYPE_STR },
+{ "Disk images folder", KNMP(g_cfg_disks_dir), CFGTYPE_FILE },
 { "Joystick Configuration", g_cfg_joystick_menu, 0, 0, CFGTYPE_MENU },
 { "ROM File Selection", g_cfg_rom_menu, 0, 0, CFGTYPE_MENU },
 { "Character ROM Selection", g_cfg_charrom_menu, 0, 0, CFGTYPE_MENU },
@@ -4018,6 +4020,10 @@ cfg_file_readdir(const char *pathptr)
 		tmppathptr = ".";
 	}
 	cfg_file_add_dirent(&g_cfg_dirlist, "..", 1, 0, 0, 0, -1);
+	if(g_cfg_file_dirsel) {
+		// "./" = use the folder shown
+		cfg_file_add_dirent(&g_cfg_dirlist, ".", 1, 0, 0, 0, -1);
+	}
 
 	dirptr = opendir(tmppathptr);
 	if(dirptr == 0) {
@@ -4083,6 +4089,9 @@ cfg_file_readdir(const char *pathptr)
 					}
 				}
 			}
+		}
+		if(g_cfg_file_dirsel && !is_dir) {
+			continue;		// Picking a folder: folders only
 		}
 		cfg_file_add_dirent(&g_cfg_dirlist, direntptr->d_name, is_dir,
 					(dword64)stat_buf.st_size, 0, 0, -1);
@@ -4198,7 +4207,11 @@ cfg_file_draw()
 	for(x = 1; x < 79; x++) {
 		cfg_putchar(' ');
 	}
-	if((g_cfg_slotdrive & 0xfff) == 0xfff) {
+	if(((g_cfg_slotdrive & 0xfff) == 0xfff) && g_cfg_file_dirsel) {
+		cfg_htab_vtab(10, 0);
+		cfg_printf("\bDisk images folder: open it, then Return on ./"
+								"\b");
+	} else if((g_cfg_slotdrive & 0xfff) == 0xfff) {
 		cfg_htab_vtab(5, 0);
 		cfg_printf("\bSelect file to use as %-40s\b",
 			cfg_shorten_filename(g_cfg_file_def_name, 40));
@@ -4418,6 +4431,15 @@ cfg_file_selected()
 						&g_cfg_file_curpath[0], 1);
 			return;
 		}
+		if(g_cfg_file_dirsel && !strcmp(str, "./")) {
+			// Use the folder shown as the disk images folder
+			cfg_file_update_ptr(g_cfg_file_strptr,
+					&(g_cfg_file_cachedreal[0]), 1);
+			g_cfg_slotdrive = 0;
+			g_cfg_file_dirsel = 0;
+			g_cfg_dirlist.invalid = 1;
+			return;
+		}
 
 		cfg_strncpy(&(g_cfg_file_path[0]), &(g_cfg_file_cachedreal[0]),
 								CFG_PATH_MAX);
@@ -4532,6 +4554,7 @@ cfg_file_handle_key(int key)
 		g_cfg_select_partition = -1;
 		g_cfg_dirlist.invalid = 1;
 		g_cfg_newdisk_select = 0;
+		g_cfg_file_dirsel = 0;
 		break;
 	case 0x0a:	/* down arrow */
 		if(g_cfg_file_pathfield == 0) {
@@ -4872,6 +4895,20 @@ cfg_control_panel_update1()
 				g_cfg_slotdrive = 0xfff;
 				g_cfg_file_def_name = *((char **)ptr);
 				g_cfg_file_strptr = (char **)ptr;
+				g_cfg_file_dirsel = 0;
+				if(ptr == (void *)&g_cfg_disks_dir) {
+					// Pick a folder, starting in the
+					//  current disk images folder
+					g_cfg_file_dirsel = 1;
+					kegs_disks_dir(
+						&g_cfg_file_dirsel_start[0],
+					    sizeof(g_cfg_file_dirsel_start));
+					cfg_strlcat(&g_cfg_file_dirsel_start[0],
+						".",
+					    sizeof(g_cfg_file_dirsel_start));
+					g_cfg_file_def_name =
+						&g_cfg_file_dirsel_start[0];
+				}
 				cfg_file_init();
 				break;
 			case CFGTYPE_STR:
