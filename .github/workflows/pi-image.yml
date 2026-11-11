@@ -28,11 +28,21 @@ jobs:
 
       - name: Install build tools
         run: |
-          # Most of these are already on the runner; retry downloads so a
-          # passing mirror hiccup doesn't fail the whole build
-          sudo apt-get -o Acquire::Retries=5 update || true
-          sudo apt-get -o Acquire::Retries=5 install -y build-essential bc \
-            bison flex cpio rsync unzip file wget libssl-dev python3 git
+          # The runner already has nearly all of these.  Only go to the
+          # Ubuntu mirrors if something is really missing, and retry, so a
+          # mirror outage doesn't fail the build.
+          missing=""
+          for t in gcc g++ make bc bison flex cpio rsync unzip file wget \
+                   python3 git perl patch; do
+            command -v "$t" >/dev/null || missing="$missing $t"
+          done
+          [ -f /usr/include/openssl/ssl.h ] || missing="$missing libssl-dev"
+          echo "missing:${missing:- none}"
+          if [ -n "$missing" ]; then
+            sudo apt-get -o Acquire::Retries=5 update || true
+            sudo apt-get -o Acquire::Retries=5 install -y build-essential \
+              bc bison flex cpio rsync unzip file wget libssl-dev python3 git
+          fi
 
       - name: Get Buildroot
         run: |
