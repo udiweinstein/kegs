@@ -1997,6 +1997,13 @@ adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c,
 	a2code = raw_a2code;
 	restore_c025_val = 0;
 	restorek_c025_val = 0;
+	if((unicode_c >= 0x05d0) && (unicode_c <= 0x05ea)) {
+		// Hebrew letter from the Mac's Hebrew keyboard: send the
+		//  Hebrew //e code for it, 0x60 + letter (alef='`', bet='a',
+		//  ... tav='z'), like Virtual ][ does.  The letter positions
+		//  then follow the Mac's Hebrew layout.
+		unicode_c = 0x60 + (unicode_c - 0x05d0);
+	}
 	if(unicode_c > 0) {
 		// To enable international keyboards, ignore a2code, look up
 		//  what U.S. keycode would be and return that
