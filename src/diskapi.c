@@ -27,8 +27,9 @@
 //		Fills the buffer with 32-byte entries, folders first, then
 //		images, by name: +0 kind (1=folder, 2=image), +1 drive it is
 //		in (slot*16 + drive 1-2..), 0 if none, +2,+3 size in KB,
-//		+4 name length (up to 27), +5..+31 name.  A = number of
-//		entries.  The list is kept for MOUNT.
+//		+4 name length (up to 26), +5..+30 name, +31 the slot it
+//		belongs in by its type: 6 = 5.25", 5 = 3.5", 7 = hard disk.
+//		A = number of entries.  The list is kept for MOUNT.
 //  2 MOUNT	block: +0 entry number (from the last LIST), +1 drive
 //		(slot*16 + drive, 0 = choose by image type), +2 a drive
 //		that must not be used (the caller's own disk), 0 = none.
@@ -144,18 +145,18 @@ dapi_put(word32 addr, word32 val)
 	set_memory_c(addr & 0xffff, val & 0xff, 1);
 }
 
-// Write a name (ASCII, at most DAPI_NAME_MAX shown) at addr: length, chars
+// Write a name (ASCII, at most max chars) at addr: length, chars
 static void
-dapi_put_name(word32 addr, const char *name)
+dapi_put_name(word32 addr, const char *name, int max)
 {
 	int	len, i, c;
 
 	len = (int)strlen(name);
-	if(len > DAPI_NAME_MAX) {
-		len = DAPI_NAME_MAX;
+	if(len > max) {
+		len = max;
 	}
 	dapi_put(addr, len);
-	for(i = 0; i < DAPI_NAME_MAX; i++) {
+	for(i = 0; i < max; i++) {
 		c = 0;
 		if(i < len) {
 			c = name[i] & 0xff;
@@ -270,7 +271,9 @@ dapi_list(word32 blk)
 		}
 		dapi_put(e + 2, kb);
 		dapi_put(e + 3, kb >> 8);
-		dapi_put_name(e + 4, g_dapi_list[i].name);
+		dapi_put_name(e + 4, g_dapi_list[i].name, DAPI_NAME_MAX - 1);
+		dapi_put(e + 31, g_dapi_list[i].is_dir ? 0 :
+			cfg_guess_disk_slot(path, g_dapi_list[i].size));
 	}
 	return num;
 }
@@ -397,7 +400,7 @@ dapi_drives(word32 blk)
 			dapi_put(e + 1, flags);
 			dapi_put(e + 2, kb);
 			dapi_put(e + 3, kb >> 8);
-			dapi_put_name(e + 4, name);
+			dapi_put_name(e + 4, name, DAPI_NAME_MAX);
 			num++;
 		}
 	}
