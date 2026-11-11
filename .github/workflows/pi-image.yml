@@ -1,14 +1,11 @@
 # Builds the Raspberry Pi 4 SD card image (Buildroot, boots straight into
-# KEGS).  Runs on every push to the pi-buildroot branch, by hand from the
-# Actions tab, or on a tag like pi-v1, which also publishes the image as
-# a GitHub Release.
+# KEGS).  Runs when you push a tag like pi-v1, and publishes the image as
+# a GitHub Release:   git tag pi-v1 && git push origin pi-v1
 name: Pi 4 SD image
 
 on:
   workflow_dispatch:
   push:
-    branches: [ pi-buildroot ]
-    paths: [ 'buildroot/**', 'src/**', '.github/workflows/pi-image.yml' ]
     tags: [ 'pi-v*' ]
 
 env:

@@ -21,10 +21,11 @@ no X11, no PulseAudio, no login.
 
 ## Getting the image
 
-**From GitHub (easiest):** open the *Actions* tab → *Pi 4 SD image* →
-*Run workflow*.  After about an hour download the `kegs-pi4-sdcard`
-artifact.  Pushing a tag named `pi-v…` (e.g. `pi-v1`) also publishes it as
-a Release.
+**From GitHub (easiest):** push a tag named `pi-v…`:
+
+    git tag pi-v2 && git push origin pi-v2
+
+After about 1½ hours the image appears under *Releases*.
 
 **Building it yourself** needs Linux (on a Mac use a Debian/Ubuntu VM or
 Docker container) and about 15 GB of disk:

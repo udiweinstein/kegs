@@ -59,3 +59,22 @@ Changing disks quickly:
   dropped file, or holding Alt, goes to drive 2.
 
 The F7 debugger window is not supported by this driver.
+
+Quick testing on a Raspberry Pi (Pi OS Lite card)
+-------------------------------------------------
+
+Keep a second SD card with Raspberry Pi OS Lite (64-bit) for trying out
+changes without building a whole SD image.  One-time setup, on the Pi:
+
+	sudo apt install -y git build-essential libsdl2-dev
+	sudo usermod -aG video,input,audio $USER     (then log out/in)
+	git clone -b udi https://github.com/udiweinstein/kegs.git ~/kegs
+	cp <your ROM file> ~/kegs/ROM
+
+After pushing changes from the Mac, on the Pi:
+
+	~/kegs/pi-update.sh
+	~/kegs/sdlkegs
+
+pi-update.sh pulls from GitHub and rebuilds (about a minute on a Pi 4).
+Run sdlkegs from the Pi's own screen and keyboard, not over ssh.
