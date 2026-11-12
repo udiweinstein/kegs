@@ -77,6 +77,14 @@ After pushing changes from the Mac, on the Pi:
 	~/kegs/sdlkegs
 
 pi-update.sh pulls from GitHub and rebuilds (about a minute on a Pi 4).
+To update and run in one step, install the "kegs" command once:
+
+	sudo ln -sf ~/kegs/pi-kegs.sh /usr/local/bin/kegs
+	sudo ln -sf ~/kegs/pi-kegs.sh /usr/local/bin/KEGS
+
+Then just type "kegs" after login: it pulls from GitHub, rebuilds only
+if there is a new version, and starts KEGS ("kegs -n" skips the update).
+
 Run sdlkegs from the Pi's own screen and keyboard, not over ssh.
 
 Network: Wi-Fi and file sharing (F4 -> Network Configuration)
