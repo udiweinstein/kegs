@@ -448,3 +448,62 @@ disk_api_call()
 		engine.psr &= ~1;		// Carry clear: OK
 	}
 }
+
+// At start-up: if the disk images folder has AUTOEXEC.img (any case, or
+//  AUTOEXEC with another disk image extension), insert it into drive 1
+//  of the slot that fits it (5.25" -> S6, 3.5" -> S5, hard disk -> S7)
+void
+cfg_autoexec_disk()
+{
+	char	dir[1024], path[1300];
+	struct stat stat_buf;
+	struct dirent *dent;
+	DIR	*dirp;
+	Disk	*dsk;
+	const char *base;
+	int	slot, drive, max_drive, found;
+
+	kegs_disks_dir(dir, sizeof(dir));
+	dirp = opendir(dir);
+	if(!dirp) {
+		return;
+	}
+	found = 0;
+	while((dent = readdir(dirp))) {
+		if(!strncasecmp(dent->d_name, "autoexec.", 9) &&
+					dapi_is_image_name(dent->d_name)) {
+			snprintf(path, sizeof(path), "%s%s", dir,
+								dent->d_name);
+			if((stat(path, &stat_buf) == 0) &&
+				((stat_buf.st_mode & S_IFMT) == S_IFREG)) {
+				found = 1;
+				break;
+			}
+		}
+	}
+	closedir(dirp);
+	if(!found) {
+		return;
+	}
+
+	// Already in a drive (config.kegs remembers it)?  Leave it there
+	for(slot = 5; slot <= 7; slot++) {
+		max_drive = (slot == 7) ? 8 : 2;
+		for(drive = 0; drive < max_drive; drive++) {
+			dsk = iwm_get_dsk_from_slot_drive(slot, drive);
+			if(!dsk || !dsk->name_ptr || (dsk->fd < 0)) {
+				continue;
+			}
+			base = strrchr(dsk->name_ptr, '/');
+			base = base ? base + 1 : dsk->name_ptr;
+			if(!strcmp(base, &path[strlen(dir)])) {
+				printf("AUTOEXEC: %s already in s%dd%d\n",
+						path, slot, drive + 1);
+				return;
+			}
+		}
+	}
+	slot = cfg_guess_disk_slot(path, stat_buf.st_size);
+	printf("AUTOEXEC: insert %s into s%dd1\n", path, slot);
+	insert_disk(slot, 0, path, 0, 0, -1, 0);
+}

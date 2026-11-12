@@ -6,6 +6,8 @@ This partition belongs to KEGS.  You can edit it from a Mac or PC.
 1. Copy your IIgs ROM file here, named ROM (or ROM.01 / ROM.03).
 2. Copy disk images (.2mg .po .dsk .woz .gz ...) into the "disks"
    folder.
+   A disk image named AUTOEXEC.img in "disks" is inserted by itself
+   at start-up (5.25" -> slot 6, 3.5" -> slot 5, hard disk -> slot 7).
 3. Put the card in the Pi and switch it on.  KEGS starts by itself.
 
 Inside KEGS:

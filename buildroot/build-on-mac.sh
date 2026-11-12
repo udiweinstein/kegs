@@ -11,6 +11,10 @@
 # Apple Silicon).  Its work files live in a Docker volume called
 # "kegs-buildroot", so later builds only redo what changed.
 # Result: sdcard/kegs-pi4-sdcard.img in this repository folder.
+#
+# Your own files for the KEGS partition (ROM, disks/ ...): put them in
+# the kegs-files folder of this repository (not stored in git) and they
+# are copied onto the card's KEGS partition.
 set -e
 
 BUILDROOT_VERSION=2026.02.3
@@ -88,6 +92,7 @@ docker run --rm -i --platform linux/amd64 --user builder \
 	-v "$REPO":/src:ro \
 	-v "$REPO/sdcard":/result \
 	-e BRV="$BUILDROOT_VERSION" \
+	-e KEGS_EXTRA_FILES=/src/kegs-files \
 	"$IMAGE" bash -s <<'INNER'
 set -e
 export HOME=/work/home		# keeps the compiler cache in the volume
@@ -105,6 +110,7 @@ if [ ! -f out/.config ] ||
 		BR2_DL_DIR=/work/dl kegs_rpi4_defconfig
 	echo "$SUM" > out/.defconfig.md5
 fi
+export KEGS_EXTRA_FILES
 # Always take the current KEGS source from the Mac
 make -s -C out BR2_DL_DIR=/work/dl kegs-dirclean
 set +e

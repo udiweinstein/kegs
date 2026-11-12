@@ -15,7 +15,7 @@ KEGS_DEPENDENCIES = sdl2
 # Don't copy Buildroot output dirs, Mac app bundles or disk images
 KEGS_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS = \
 	--exclude buildroot --exclude output --exclude 'output-*' \
-	--exclude sdcard --exclude '*.img' \
+	--exclude sdcard --exclude kegs-files --exclude '*.img' \
 	--exclude '*.app' --exclude '*.o' --exclude /sdlkegs \
 	--exclude '*.gz' --exclude '*.dsk' \
 	--exclude '*.2mg' --exclude '*.po' --exclude '*.woz'

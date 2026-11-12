@@ -54,3 +54,4 @@ sdlkegs
 xkegs
 src/*.o
 sdcard/
+kegs-files/

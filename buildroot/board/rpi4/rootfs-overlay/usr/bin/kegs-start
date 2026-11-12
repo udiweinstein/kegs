@@ -26,8 +26,10 @@ printf 'defaults.pcm.card %s\ndefaults.ctl.card %s\n' "$AUDIO" "$AUDIO" \
 export SDL_VIDEODRIVER=kmsdrm
 export SDL_AUDIODRIVER=alsa
 
+# Nothing is shown on the screen except a missing ROM; problems go to
+#  the logs (kegs.log / boot-log.txt on the KEGS partition)
 if ! mountpoint -q /kegs; then
-	echo "KEGS partition (/kegs) is not mounted"
+	echo "KEGS partition (/kegs) is not mounted" > /tmp/kegs-start.log
 	sleep 10
 	exit 1
 fi
@@ -57,20 +59,14 @@ LOG=/kegs/kegs.log
 dmesg >> /kegs/boot-log.txt 2>&1
 sync
 
-echo "Starting KEGS..."
 START=$(date +%s)
 # shellcheck disable=SC2086
 /usr/bin/sdlkegs $KEGS_ARGS > "$LOG" 2>&1
 RC=$?
+echo "=== KEGS exited with code $RC" >> "$LOG"
 sync
 
-# If KEGS stopped right away, show why on the screen before trying again
+# Stopped right away: wait a little before init starts it again
 if [ $(( $(date +%s) - START )) -lt 15 ]; then
-	echo
-	echo "KEGS stopped (exit code $RC).  Last lines of kegs.log:"
-	tail -n 20 "$LOG"
-	echo
-	echo "Full logs: kegs.log and boot-log.txt on the KEGS partition."
-	echo "Trying again in 30 seconds..."
-	sleep 30
+	sleep 10
 fi

@@ -95,6 +95,7 @@ int adb_hebrew_key(int a2code);
 
 /* diskapi.c */
 void kegs_disks_dir(char *buf, int len);
+void cfg_autoexec_disk(void);
 void disk_api_call(void);
 
 /* netcfg.c (Linux only) */

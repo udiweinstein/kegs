@@ -645,6 +645,7 @@ config_init()
 	}
 
 	config_parse_config_kegs_file();
+	cfg_autoexec_disk();	// disks/AUTOEXEC.img, if there is one
 #ifdef __linux__
 	cfg_net_boot();		// Wi-Fi / file sharing, in the background
 #endif
