@@ -121,5 +121,5 @@ fi
 cp out/images/sdcard.img /result/kegs-pi4-sdcard.img
 INNER
 
-say "Done: $REPO/sdcard/kegs-pi4-sdcard.img"
+say "Done in $((SECONDS / 60)) min $((SECONDS % 60)) s: $REPO/sdcard/kegs-pi4-sdcard.img"
 echo "Write it to a micro-SD card with Raspberry Pi Imager (Use custom)."
