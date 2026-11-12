@@ -33,6 +33,30 @@ if ! mountpoint -q /kegs; then
 fi
 cd /kegs || exit 1
 
-# shellcheck disable=SC2086
-/usr/bin/sdlkegs $KEGS_ARGS > /tmp/kegs.log 2>&1
+# Logs on the KEGS partition, so they can be read on a Mac or PC
+LOG=/kegs/kegs.log
+{
+	echo "=== $(date)  KEGS_ARGS=$KEGS_ARGS AUDIO=$AUDIO"
+	ls -l /dev/dri /kegs 2>&1
+	cat /sys/class/drm/card*-HDMI*/status 2>/dev/null
+} > /kegs/boot-log.txt
+dmesg >> /kegs/boot-log.txt 2>&1
 sync
+
+echo "Starting KEGS..."
+START=$(date +%s)
+# shellcheck disable=SC2086
+/usr/bin/sdlkegs $KEGS_ARGS > "$LOG" 2>&1
+RC=$?
+sync
+
+# If KEGS stopped right away, show why on the screen before trying again
+if [ $(( $(date +%s) - START )) -lt 15 ]; then
+	echo
+	echo "KEGS stopped (exit code $RC).  Last lines of kegs.log:"
+	tail -n 20 "$LOG"
+	echo
+	echo "Full logs: kegs.log and boot-log.txt on the KEGS partition."
+	echo "Trying again in 30 seconds..."
+	sleep 30
+fi
