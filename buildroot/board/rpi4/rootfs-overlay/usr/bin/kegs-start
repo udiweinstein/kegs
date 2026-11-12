@@ -34,7 +34,11 @@ fi
 cd /kegs || exit 1
 
 # No ROM file yet: say so on the screen instead of a black screen
-if ! ls /kegs/ROM* /kegs/rom* /kegs/*.rom /kegs/*.ROM >/dev/null 2>&1; then
+HAVE_ROM=0
+for f in /kegs/ROM* /kegs/rom* /kegs/Rom* /kegs/*.rom /kegs/*.ROM; do
+	[ -f "$f" ] && HAVE_ROM=1
+done
+if [ "$HAVE_ROM" = 0 ]; then
 	echo
 	echo "  No IIgs ROM file on the KEGS partition."
 	echo "  Put the SD card in a Mac or PC and copy your ROM file to the"
