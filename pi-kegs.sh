@@ -15,7 +15,7 @@ if [ "$1" = "-n" ]; then
 else
 	OLD=$(git rev-parse HEAD 2>/dev/null)
 	echo "Checking for a new KEGS version..."
-	if timeout 20 git pull -q --ff-only 2>/dev/null; then
+	if timeout 30 git pull -q --ff-only 2>/tmp/kegs-pull.err; then
 		NEW=$(git rev-parse HEAD)
 		if [ "$OLD" != "$NEW" ] || [ ! -x sdlkegs ]; then
 			echo "New version - building:"
@@ -30,7 +30,9 @@ else
 			echo "Up to date."
 		fi
 	else
-		echo "No network or GitHub not reachable - running the current version."
+		echo "Update failed - running the current version:"
+		cat /tmp/kegs-pull.err
+		sleep 5
 	fi
 fi
 
