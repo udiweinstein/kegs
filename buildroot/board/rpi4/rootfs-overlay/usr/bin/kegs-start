@@ -33,6 +33,16 @@ if ! mountpoint -q /kegs; then
 fi
 cd /kegs || exit 1
 
+# No ROM file yet: say so on the screen instead of a black screen
+if ! ls /kegs/ROM* /kegs/rom* /kegs/*.rom /kegs/*.ROM >/dev/null 2>&1; then
+	echo
+	echo "  No IIgs ROM file on the KEGS partition."
+	echo "  Put the SD card in a Mac or PC and copy your ROM file to the"
+	echo "  KEGS drive, named ROM (or ROM.01 / ROM.03).  Then restart."
+	sleep 60
+	exit 1
+fi
+
 # Logs on the KEGS partition, so they can be read on a Mac or PC
 LOG=/kegs/kegs.log
 {
