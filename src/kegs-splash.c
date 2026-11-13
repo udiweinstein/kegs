@@ -57,6 +57,48 @@ load(const char *path)
 	return 1;
 }
 
+// Show it in another colour than KEGS itself, so the two can be told
+//  apart: the background (the most common colour) becomes dark green
+#define SPLASH_BG	0x00105a10
+
+static void
+recolor()
+{
+	uint32_t cols[16], cnt[16], c, best;
+	size_t	i, n;
+	int	j, num;
+
+	num = 0;
+	n = (size_t)g_w * g_h;
+	for(i = 0; i < n; i += 7) {
+		c = g_img[i] & 0xffffff;
+		for(j = 0; j < num; j++) {
+			if(cols[j] == c) {
+				cnt[j]++;
+				break;
+			}
+		}
+		if((j == num) && (num < 16)) {
+			cols[num] = c;
+			cnt[num++] = 1;
+		}
+	}
+	if(num == 0) {
+		return;
+	}
+	best = 0;
+	for(j = 1; j < num; j++) {
+		if(cnt[j] > cnt[best]) {
+			best = j;
+		}
+	}
+	for(i = 0; i < n; i++) {
+		if((g_img[i] & 0xffffff) == cols[best]) {
+			g_img[i] = SPLASH_BG;
+		}
+	}
+}
+
 static int
 fb_is_vc4()
 {
@@ -158,6 +200,7 @@ main(int argc, char **argv)
 	if((argc != 2) || !load(argv[1])) {
 		return 1;
 	}
+	recolor();
 	if(wait_vc4) {
 		// The vc4 driver replaces the boot framebuffer (and blanks
 		//  the screen) about a second after start-up

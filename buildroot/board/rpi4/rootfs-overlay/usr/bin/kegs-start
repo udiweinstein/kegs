@@ -87,6 +87,25 @@ LOG=/kegs/kegs.log
 		dmesg
 	} > /kegs/boot-log.txt 2>&1
 	sync
+	# Network log for the first 3 minutes (Wi-Fi debugging)
+	n=0
+	while [ $n -lt 9 ]; do
+		sleep 20
+		{
+			echo "=== $(date +%T)"
+			ls /sys/class/net
+			ip addr
+			for f in /tmp/kegs-net/status /tmp/kegs-net/scan \
+					/tmp/kegs-net/kegs-net.err; do
+				echo "--- $f"
+				cat "$f" 2>&1
+			done
+			ps | grep -E 'wpa|udhcpc|kegs-net' | grep -v grep
+			dmesg | grep -iE 'brcm|wlan|cfg80211|mmc1'
+		} > /kegs/net-log.txt 2>&1
+		sync
+		n=$((n + 1))
+	done
 ) &
 
 # KEGS saves its start-up screen here; S00kegs-splash shows it at boot

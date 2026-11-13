@@ -26,6 +26,9 @@ SMB_USER=kegs
 SMB_PASS=apple2
 mkdir -p "$STATE" 2>/dev/null
 chmod 777 "$STATE" 2>/dev/null
+# Errors go to a log (KEGS runs this with no terminal)
+echo "--- $(date +%T) kegs-net $1" >> "$STATE/kegs-net.err" 2>/dev/null
+exec 2>>"$STATE/kegs-net.err"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
