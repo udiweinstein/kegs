@@ -388,8 +388,10 @@ sdl_update_display(Sdl_window_info *win_info_ptr)
 		SDL_RenderCopy(win_info_ptr->renderer, win_info_ptr->texture,
 									0, 0);
 		SDL_RenderPresent(win_info_ptr->renderer);
-		sdl_maybe_save_splash(win_info_ptr);
 	}
+	// Every frame, also when nothing changed: the start-up screen
+	//  stays the same for a while, so there are no new frames then
+	sdl_maybe_save_splash(win_info_ptr);
 }
 
 // Does Apple II text screen row (40 columns, bank $E0) contain str?

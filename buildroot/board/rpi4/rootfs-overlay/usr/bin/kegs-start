@@ -20,8 +20,12 @@ fi
 # ALSA: send sound to the chosen card (vc4hdmi0 = HDMI, Headphones = jack)
 export HOME=/tmp/kegs-home
 mkdir -p "$HOME"
-printf 'defaults.pcm.card %s\ndefaults.ctl.card %s\n' "$AUDIO" "$AUDIO" \
-	> "$HOME/.asoundrc"
+case "$AUDIO" in
+vc4hdmi*)	PCM="hdmi:CARD=$AUDIO,DEV=0" ;;	# HDMI needs the hdmi plugin
+*)		PCM="plughw:CARD=$AUDIO,DEV=0" ;;
+esac
+printf 'pcm.!default "%s"\nctl.!default { type hw card "%s" }\n' \
+	"$PCM" "$AUDIO" > "$HOME/.asoundrc"
 
 export SDL_VIDEODRIVER=kmsdrm
 export SDL_AUDIODRIVER=alsa
