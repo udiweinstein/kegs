@@ -58,6 +58,10 @@ LOG=/kegs/kegs.log
 		echo "=== $(date)  KEGS_ARGS=$KEGS_ARGS AUDIO=$AUDIO"
 		ls -l /dev/dri /kegs 2>&1
 		cat /sys/class/drm/card*-HDMI*/status 2>/dev/null
+		cat /tmp/kegs-input.txt
+		ls -la /kegs/.kegs-splash
+		cat /proc/fb
+		ps
 		dmesg
 	} > /kegs/boot-log.txt 2>&1
 	sync
@@ -65,6 +69,14 @@ LOG=/kegs/kegs.log
 
 # KEGS saves its start-up screen here; S00kegs-splash shows it at boot
 export KEGS_SPLASH=/kegs/.kegs-splash
+
+# Start-up is fast now: give the USB keyboard up to 3 seconds to appear
+i=0
+while [ $i -lt 3 ] && ! ls /dev/input/by-path/*kbd* >/dev/null 2>&1; do
+	sleep 1
+	i=$((i + 1))
+done
+ls -l /dev/input /dev/input/by-path > /tmp/kegs-input.txt 2>&1
 
 START=$(date +%s)
 # shellcheck disable=SC2086

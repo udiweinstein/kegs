@@ -411,6 +411,19 @@ sdl_text_row_has(int row, const char *str)
 	return strstr(line, str) != 0;
 }
 
+static int
+sdl_text_rows_have(int first, int last, const char *str)
+{
+	int	row;
+
+	for(row = first; row <= last; row++) {
+		if(sdl_text_row_has(row, str)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 // Raspberry Pi SD image: save the IIgs start-up screen ("Apple IIgs" +
 //  copyright), exactly as KEGS draws it, to the file in $KEGS_SPLASH.
 //  kegs-splash shows it on the next power-on while Linux boots.
@@ -436,10 +449,13 @@ sdl_maybe_save_splash(Sdl_window_info *win_info_ptr)
 		done = 1;		// Not wanted, or long past start-up
 		return;
 	}
-	if(!sdl_text_row_has(0, "Apple") ||
-					!sdl_text_row_has(21, "Copyright")) {
+	if(!sdl_text_rows_have(0, 5, "Apple") ||
+				!sdl_text_rows_have(16, 23, "Copyright")) {
 		seen = 0;
 		return;
+	}
+	if(seen == 0) {
+		printf("Start-up screen found, saving it soon\n");
 	}
 	if(++seen < 3) {
 		return;		// Let the whole screen be drawn first
