@@ -31,7 +31,8 @@ changes to config.kegs).
 
 Optional: create a file named kegs.env here to change settings
 at start-up, one per line, for example:
-  AUDIO=Headphones      sound from the 3.5mm jack (default: HDMI)
+  AUDIO=Headphones      sound from the 3.5mm jack (default: HDMI if
+                        the screen has speakers, else the jack)
   KEGS_ARGS=-audio 0    extra KEGS command line options
 
 Before switching the Pi off, let disk activity finish: settings and

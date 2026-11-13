@@ -2,7 +2,7 @@
 # Started by init on tty1 (see /etc/inittab).  Runs KEGS full screen on
 # the HDMI display, with its files on the KEGS partition (/kegs).
 
-AUDIO=vc4hdmi0
+AUDIO=auto
 KEGS_ARGS=
 
 # Optional settings from /kegs/kegs.env (KEY=value lines, may have CRLF)
@@ -15,6 +15,20 @@ if [ -f /kegs/kegs.env ]; then
 		SDL_*)		export "$key=$val" ;;
 		esac
 	done < /kegs/kegs.env
+fi
+
+# AUDIO=auto: HDMI if the screen takes sound (it says so in its EDID,
+#  shown in the ELD file), else the 3.5mm jack
+if [ "$AUDIO" = auto ]; then
+	AUDIO=Headphones
+	for eld in /proc/asound/vc4hdmi0/eld* /proc/asound/vc4hdmi1/eld*; do
+		[ -f "$eld" ] || continue
+		if grep -q 'monitor_present[[:space:]]*1' "$eld" &&
+		   ! grep -q 'sad_count[[:space:]]*0' "$eld"; then
+			AUDIO=$(basename "$(dirname "$eld")")
+			break
+		fi
+	done
 fi
 
 # ALSA: send sound to the chosen card (vc4hdmi0 = HDMI, Headphones = jack)
@@ -63,6 +77,9 @@ LOG=/kegs/kegs.log
 		ls -l /dev/dri /kegs 2>&1
 		cat /sys/class/drm/card*-HDMI*/status 2>/dev/null
 		cat /tmp/kegs-input.txt
+		echo "AUDIO used: $AUDIO"
+		cat /proc/asound/cards
+		head -n 12 /proc/asound/vc4hdmi*/eld* 2>&1
 		ls -la /kegs/.kegs-splash
 		cat /proc/fb
 		ps

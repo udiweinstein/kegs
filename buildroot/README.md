@@ -47,7 +47,7 @@ Docker container) and about 15 GB of disk:
 
 Optional `kegs.env` on the KEGS volume (one `KEY=value` per line):
 
-    AUDIO=Headphones        # 3.5 mm jack instead of HDMI (vc4hdmi0)
+    AUDIO=Headphones        # 3.5 mm jack (default auto: HDMI if the screen takes sound)
     KEGS_ARGS=-audio 0      # extra command line options for KEGS
     SDL_VIDEO_KMSDRM_DEVICE_INDEX=1   # any SDL_* variable is passed on
 
