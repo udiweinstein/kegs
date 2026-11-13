@@ -99,6 +99,9 @@ while [ $i -lt 3 ] && ! ls /dev/input/by-path/*kbd* >/dev/null 2>&1; do
 done
 ls -l /dev/input /dev/input/by-path > /tmp/kegs-input.txt 2>&1
 
+# TEST: text just before KEGS starts
+printf '\n\n   WELCOME TO APPLE  (2 - KEGS starting)\n'
+
 START=$(date +%s)
 # shellcheck disable=SC2086
 /usr/bin/sdlkegs $KEGS_ARGS > "$LOG" 2>&1
