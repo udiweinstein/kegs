@@ -6,6 +6,11 @@ BOARD_DIR="$(dirname "$0")"
 GENIMAGE_CFG="${BINARIES_DIR}/genimage.cfg"
 GENIMAGE_TMP="${BUILD_DIR}/genimage.tmp"
 
+# Newer GPU firmware that matches the bootloader in /usr/share/kegs-eeprom
+#  (see board/rpi4/firmware/README.txt)
+cp "${BOARD_DIR}/firmware/start4.elf" "${BOARD_DIR}/firmware/fixup4.dat" \
+	"${BINARIES_DIR}/rpi-firmware/"
+
 # Boot partition: firmware, overlays, device trees, kernel
 FILES=()
 for i in "${BINARIES_DIR}"/*.dtb "${BINARIES_DIR}"/rpi-firmware/*; do
