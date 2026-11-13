@@ -18,6 +18,7 @@
 #include <SDL.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "defc.h"
 
 extern int g_audio_enable;
@@ -491,8 +492,12 @@ sdl_maybe_save_splash(Sdl_window_info *win_info_ptr)
 	}
 	if((fwrite(hdr, 1, 12, fp) == 12) &&
 			(fwrite(win_info_ptr->pixels, 1, size, fp) == size)) {
+		fflush(fp);
+		fsync(fileno(fp));
 		fclose(fp);
 		rename(tmp, path);
+		sync();		// The Pi is often switched off by pulling
+				//  the plug: make sure it is on the card
 		printf("Saved start-up screen to %s\n", path);
 	} else {
 		fclose(fp);

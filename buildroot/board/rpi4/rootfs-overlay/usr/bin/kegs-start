@@ -81,6 +81,7 @@ LOG=/kegs/kegs.log
 		cat /proc/asound/cards
 		head -n 12 /proc/asound/vc4hdmi*/eld* 2>&1
 		ls -la /kegs/.kegs-splash
+		cat /tmp/kegs-splash.log
 		cat /proc/fb
 		ps
 		dmesg
@@ -98,9 +99,6 @@ while [ $i -lt 3 ] && ! ls /dev/input/by-path/*kbd* >/dev/null 2>&1; do
 	i=$((i + 1))
 done
 ls -l /dev/input /dev/input/by-path > /tmp/kegs-input.txt 2>&1
-
-# TEST: text just before KEGS starts
-printf '\n\n   WELCOME TO APPLE  (2 - KEGS starting)\n'
 
 START=$(date +%s)
 # shellcheck disable=SC2086

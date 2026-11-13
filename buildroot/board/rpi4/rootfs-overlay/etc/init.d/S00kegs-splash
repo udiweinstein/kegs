@@ -4,11 +4,9 @@
 SPLASH=/kegs/.kegs-splash
 case "$1" in
 start)
-	# TEST: text on the HDMI screen as early as possible
-	printf '\033[2J\033[H\n\n   WELCOME TO APPLE  (1 - start of Linux)\n' > /dev/tty1
-	exit 0
-	[ -f "$SPLASH" ] || exit 0
+	[ -f "$SPLASH" ] || { echo "no $SPLASH at boot" > /tmp/kegs-splash.log; exit 0; }
 	/usr/bin/kegs-splash "$SPLASH"
+	echo "kegs-splash: $?" > /tmp/kegs-splash.log
 	# Draw it again once the vc4 display driver has taken over
 	/usr/bin/kegs-splash -w "$SPLASH" &
 	;;
