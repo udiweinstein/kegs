@@ -114,6 +114,8 @@ char *cfg_net_smb_windows(int get_status);
 char *cfg_net_smb_mac(int get_status);
 char *cfg_net_ip(int get_status);
 char *cfg_net_share_status(int get_status);
+void cfg_splash_changed(void);
+char *cfg_splash_status(int get_status);
 void adb_physical_key_update(Kimage *kimage_ptr, int raw_a2code, word32 unicode_c, int is_up);
 void adb_maybe_virtual_key_update(int a2code, int is_up);
 void adb_virtual_key_update(int a2code, int is_up);

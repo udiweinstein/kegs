@@ -24,6 +24,7 @@
 char	*g_cfg_wifi_ssid = "";
 char	*g_cfg_wifi_pass = "";
 int	g_cfg_net_smb = 0;
+int	g_cfg_disable_splash = 0;	// Raspberry Pi 4 bootloader screen
 
 #ifdef __linux__
 
@@ -426,3 +427,48 @@ cfg_net_ip(int get_status)
 }
 
 #endif	/* __linux__ */
+
+#ifdef __linux__
+// F4 Video "Disable splash" changed: set DISABLE_HDMI in the Pi 4
+//  bootloader EEPROM (kegs-net splash 1|0)
+void
+cfg_splash_changed()
+{
+	unlink(NET_STATE_DIR "/eeprom");
+	net_run("splash", g_cfg_disable_splash ? "1" : "0", 0, 0, 0);
+}
+
+char *
+cfg_splash_status(int get_status)
+{
+	char	buf[200];
+	FILE	*fp;
+	int	len;
+
+	if(!get_status) {
+		return 0;
+	}
+	buf[0] = 0;
+	fp = fopen(NET_STATE_DIR "/eeprom", "r");
+	if(fp) {
+		if(!fgets(buf, sizeof(buf), fp)) {
+			buf[0] = 0;
+		}
+		fclose(fp);
+	}
+	len = (int)strlen(buf);
+	while(len && ((buf[len - 1] == '\n') || (buf[len - 1] == '\r'))) {
+		buf[--len] = 0;
+	}
+	if(!strcmp(buf, "ok")) {
+		return net_dup("Saved - turn the Pi off and on twice");
+	}
+	if(!strcmp(buf, "working")) {
+		return net_dup("Writing...");
+	}
+	if(buf[0]) {
+		return net_dup(buf);
+	}
+	return net_dup("Pi 4 boot screen (before KEGS starts)");
+}
+#endif

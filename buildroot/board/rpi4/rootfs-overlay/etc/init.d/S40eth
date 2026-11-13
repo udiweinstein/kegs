@@ -1,0 +1,12 @@
+#!/bin/sh
+# Wired network in the background, so start-up never waits for it
+case "$1" in
+start)
+	ip link set eth0 up 2>/dev/null || exit 0
+	udhcpc -S -i eth0 -p /var/run/udhcpc.eth0.pid >/dev/null 2>&1 &
+	;;
+stop)
+	[ -f /var/run/udhcpc.eth0.pid ] && kill "$(cat /var/run/udhcpc.eth0.pid)"
+	;;
+esac
+exit 0

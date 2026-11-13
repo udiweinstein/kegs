@@ -1,0 +1,13 @@
+#!/bin/sh
+# First thing at start-up: show the IIgs start-up screen (saved by KEGS
+# on an earlier run) instead of a black screen while Linux boots.
+SPLASH=/kegs/.kegs-splash
+case "$1" in
+start)
+	[ -f "$SPLASH" ] || exit 0
+	/usr/bin/kegs-splash "$SPLASH"
+	# Draw it again once the vc4 display driver has taken over
+	/usr/bin/kegs-splash -w "$SPLASH" &
+	;;
+esac
+exit 0

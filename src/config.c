@@ -76,6 +76,7 @@ extern const char g_kegs_fork_version_str[];
 extern char *g_cfg_wifi_ssid;
 extern char *g_cfg_wifi_pass;
 extern int g_cfg_net_smb;
+extern int g_cfg_disable_splash;
 extern int g_cfg_hires_mono;
 extern char *g_cfg_disks_dir;
 extern char g_compile_time[];
@@ -324,6 +325,10 @@ Cfg_menu g_cfg_video_menu[] = {
 	"8,Off (Update video every 8 lines)",
 		KNMP(g_video_line_update_interval), CFGTYPE_INT },
 { "Dump text screen to file", (void *)cfg_text_screen_dump, 0, 0, CFGTYPE_FUNC},
+#ifdef __linux__
+{ "Disable splash,0,No,1,Yes", KNMP(g_cfg_disable_splash), CFGTYPE_INT },
+{ "  ", (void *)cfg_splash_status, 0, 0, CFGTYPE_FUNC },
+#endif
 { "", 0, 0, 0, 0 },
 { "Back to Main Config", g_cfg_main_menu, 0, 0, CFGTYPE_MENU },
 { 0, 0, 0, 0, 0 },
@@ -1070,6 +1075,9 @@ cfg_int_update(int *iptr, int new_val)
 #ifdef __linux__
 	if(iptr == &g_cfg_net_smb) {
 		cfg_net_smb_changed();	// start/stop SMB file sharing
+	}
+	if(iptr == &g_cfg_disable_splash) {
+		cfg_splash_changed();	// Pi 4 bootloader EEPROM setting
 	}
 #endif
 
@@ -4819,7 +4827,8 @@ cfg_control_panel_update1()
 	int	type, key;
 
 #ifdef __linux__
-	if((g_menuptr == g_cfg_net_menu) && !g_cfg_edit_ptr) {
+	if(((g_menuptr == g_cfg_net_menu) ||
+			(g_menuptr == g_cfg_video_menu)) && !g_cfg_edit_ptr) {
 		// Network status lines change on their own: redraw about
 		//  twice a second
 		static int net_redraw_count = 0;

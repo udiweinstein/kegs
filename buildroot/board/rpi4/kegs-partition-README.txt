@@ -22,6 +22,10 @@ over the network (SMB), to copy disk images from a Mac or PC:
   On a Mac, run once in Terminal (else Finder hangs on "Connecting"):
   printf '[default]\nprotocol_vers_map=6\n' | sudo tee /etc/nsmb.conf
 
+F4 -> Video Setting -> Disable splash = Yes hides the Raspberry Pi
+boot screen (bootloader EEPROM setting).  Then turn the Pi off and on
+twice: the first start installs the setting.
+
 KEGS saves its settings to config.kegs on this partition (F4 -> Save
 changes to config.kegs).
 

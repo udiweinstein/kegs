@@ -13,6 +13,9 @@
 #   kegs-net scan                    write /tmp/kegs-net/scan (SSIDs)
 #   kegs-net connect SSID [PASSWORD] join a Wi-Fi network
 #   kegs-net smb on DIR | off        start/stop sharing DIR as "disks"
+#   kegs-net splash 1|0              Raspberry Pi 4: hide (1) or show (0)
+#                                    the bootloader screen (EEPROM setting
+#                                    DISABLE_HDMI); result in $STATE/eeprom
 #   kegs-net boot SSID PASSWORD SMB DIR
 #                                    at KEGS start-up: join Wi-Fi (only
 #                                    without NetworkManager) and start
@@ -250,10 +253,70 @@ smb_off() {
 	rm -f "$STATE/smb.on" "$STATE/smb.err"
 }
 
+# Bootloader settings with DISABLE_HDMI=$1, read from stdin: the line goes
+#  right after [all] (or first if there is no [all])
+set_disable_hdmi() {
+	awk -v v="$1" '
+		/^DISABLE_HDMI=/ { next }
+		{ print }
+		$0 == "[all]" && !done { print "DISABLE_HDMI=" v; done = 1 }
+		END { if (!done) print "DISABLE_HDMI=" v }'
+}
+
+# Raspberry Pi 4 bootloader screen: hide (1) or show (0).  The setting is
+#  in the board's EEPROM; the Pi installs the update at the next power-on.
+splash() {
+	echo "working" | put eeprom
+	EE=/usr/share/kegs-eeprom
+	if [ -f "$EE/pieeprom.bin" ] && have rpi-eeprom-config; then
+		# KEGS SD image: make pieeprom.upd from the bootloader shipped
+		#  with it and put it on the boot partition with recovery.bin
+		if ! rpi-eeprom-config "$EE/pieeprom.bin" |
+			set_disable_hdmi "$1" > "$STATE/bootconf.txt" ||
+		   ! rpi-eeprom-config --config "$STATE/bootconf.txt" \
+			--out "$STATE/pieeprom.upd" "$EE/pieeprom.bin" \
+			>/dev/null 2>&1 ||
+		   ! rpi-eeprom-digest -i "$STATE/pieeprom.upd" \
+			-o "$STATE/pieeprom.sig" >/dev/null 2>&1; then
+			echo "error: could not make the update" | put eeprom
+			return
+		fi
+		mkdir -p "$STATE/boot"
+		if ! as_root mount -t vfat /dev/mmcblk0p1 "$STATE/boot"; then
+			echo "error: could not open the boot partition" |
+								put eeprom
+			return
+		fi
+		if as_root cp "$STATE/pieeprom.upd" "$STATE/pieeprom.sig" \
+				"$EE/recovery.bin" "$STATE/boot/"; then
+			echo "ok" | put eeprom
+		else
+			echo "error: could not write the boot partition" |
+								put eeprom
+		fi
+		sync
+		as_root umount "$STATE/boot"
+	elif have rpi-eeprom-config && have vcgencmd; then
+		# Raspberry Pi OS: change the current settings, stage update
+		if as_root rpi-eeprom-config 2>/dev/null |
+			set_disable_hdmi "$1" > "$STATE/bootconf.txt" &&
+		   grep -q '^\[all\]' "$STATE/bootconf.txt" &&
+		   as_root rpi-eeprom-config --apply "$STATE/bootconf.txt" \
+							>/dev/null 2>&1; then
+			echo "ok" | put eeprom
+		else
+			echo "error: rpi-eeprom-config failed" | put eeprom
+		fi
+	else
+		echo "error: only on a Raspberry Pi 4" | put eeprom
+	fi
+}
+
 case "$1" in
 status)		status ;;
 scan)		scan ;;
 connect)	connect "$2" "$3" ;;
+splash)		splash "$2" ;;
 smb)
 	case "$2" in
 	on)	smb_on "$3" ;;
