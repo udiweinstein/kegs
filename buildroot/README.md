@@ -52,7 +52,11 @@ Optional `kegs.env` on the KEGS volume (one `KEY=value` per line):
     SDL_VIDEO_KMSDRM_DEVICE_INDEX=1   # any SDL_* variable is passed on
 
 If KEGS quits it is restarted automatically.  Nothing is shown on the
-screen while it starts, except a message when there is no ROM file.  Its output goes to
+screen while it starts, except a message when there is no ROM file.
+KEGS saves its IIgs start-up screen to `.kegs-splash` on the KEGS
+partition; from the next power-on it is shown as soon as Linux starts
+(`kegs-splash`, run by `/etc/init.d/S00kegs-splash`).  The wired network
+gets its address in the background, so start-up never waits for it.  Its output goes to
 `kegs.log` on the KEGS partition, and `boot-log.txt` there has the kernel
 messages and display status of the last start.  For debugging there is a root login (no password) on
 the serial port (GPIO 14/15, 115200 baud).

@@ -27,11 +27,14 @@ define KEGS_BUILD_CMDS
 		CC="$(TARGET_CC) $(TARGET_CFLAGS)" \
 		SDL2_CONFIG="$(STAGING_DIR)/usr/bin/sdl2-config" \
 		sdlkegs
+	$(TARGET_CC) $(TARGET_CFLAGS) -o $(@D)/kegs-splash \
+		$(@D)/src/kegs-splash.c
 endef
 
 define KEGS_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/sdlkegs $(TARGET_DIR)/usr/bin/sdlkegs
 	$(INSTALL) -D -m 0755 $(@D)/src/kegs-net.sh $(TARGET_DIR)/usr/bin/kegs-net
+	$(INSTALL) -D -m 0755 $(@D)/kegs-splash $(TARGET_DIR)/usr/bin/kegs-splash
 endef
 
 $(eval $(generic-package))

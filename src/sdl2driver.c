@@ -388,6 +388,97 @@ sdl_update_display(Sdl_window_info *win_info_ptr)
 		SDL_RenderCopy(win_info_ptr->renderer, win_info_ptr->texture,
 									0, 0);
 		SDL_RenderPresent(win_info_ptr->renderer);
+		sdl_maybe_save_splash(win_info_ptr);
+	}
+}
+
+// Does Apple II text screen row (40 columns, bank $E0) contain str?
+static int
+sdl_text_row_has(int row, const char *str)
+{
+	extern byte *g_slow_memory_ptr;
+	char	line[41];
+	int	addr, i;
+
+	addr = 0x400 + (row & 7) * 0x80 + (row >> 3) * 0x28;
+	for(i = 0; i < 40; i++) {
+		line[i] = g_slow_memory_ptr[addr + i] & 0x7f;
+		if(line[i] < 0x20) {
+			line[i] += 0x40;	// Inverse/flash letters
+		}
+	}
+	line[40] = 0;
+	return strstr(line, str) != 0;
+}
+
+// Raspberry Pi SD image: save the IIgs start-up screen ("Apple IIgs" +
+//  copyright), exactly as KEGS draws it, to the file in $KEGS_SPLASH.
+//  kegs-splash shows it on the next power-on while Linux boots.
+//  Format: "KSPL", width, height (32-bit little endian), ARGB pixels.
+void
+sdl_maybe_save_splash(Sdl_window_info *win_info_ptr)
+{
+	static int done = 0;
+	static int seen = 0;
+	const char *path;
+	FILE	*fp;
+	byte	*old;
+	char	tmp[1100];
+	word32	hdr[3];
+	size_t	size;
+	int	same;
+
+	if(done) {
+		return;
+	}
+	path = getenv("KEGS_SPLASH");
+	if(!path || !path[0] || (SDL_GetTicks() > 30000)) {
+		done = 1;		// Not wanted, or long past start-up
+		return;
+	}
+	if(!sdl_text_row_has(0, "Apple") ||
+					!sdl_text_row_has(21, "Copyright")) {
+		seen = 0;
+		return;
+	}
+	if(++seen < 3) {
+		return;		// Let the whole screen be drawn first
+	}
+	done = 1;
+	memcpy(&hdr[0], "KSPL", 4);
+	hdr[1] = win_info_ptr->width;
+	hdr[2] = win_info_ptr->height;
+	size = (size_t)hdr[1] * hdr[2] * 4;
+
+	// Write only when it changed (it is on the SD card)
+	same = 0;
+	old = malloc(size + 12);
+	fp = fopen(path, "rb");
+	if(fp && old) {
+		same = (fread(old, 1, size + 12, fp) == size + 12) &&
+			!memcmp(old, hdr, 12) &&
+			!memcmp(old + 12, win_info_ptr->pixels, size);
+	}
+	if(fp) {
+		fclose(fp);
+	}
+	free(old);
+	if(same) {
+		return;
+	}
+	snprintf(tmp, sizeof(tmp), "%s.tmp", path);
+	fp = fopen(tmp, "wb");
+	if(!fp) {
+		return;
+	}
+	if((fwrite(hdr, 1, 12, fp) == 12) &&
+			(fwrite(win_info_ptr->pixels, 1, size, fp) == size)) {
+		fclose(fp);
+		rename(tmp, path);
+		printf("Saved start-up screen to %s\n", path);
+	} else {
+		fclose(fp);
+		remove(tmp);
 	}
 }
 

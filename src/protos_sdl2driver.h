@@ -9,6 +9,7 @@ void sdl_video_init(void);
 void sdl_init_window(Sdl_window_info *win_info_ptr, Kimage *kimage_ptr, const char *name_str);
 void sdl_create_window(Sdl_window_info *win_info_ptr);
 void sdl_update_display(Sdl_window_info *win_info_ptr);
+void sdl_maybe_save_splash(Sdl_window_info *win_info_ptr);
 void sdl_check_debugwin(void);
 void sdl_toggle_fullscreen(void);
 void sdl_do_paste(void);

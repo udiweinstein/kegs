@@ -50,14 +50,21 @@ if [ "$HAVE_ROM" = 0 ]; then
 fi
 
 # Logs on the KEGS partition, so they can be read on a Mac or PC
+# (written in the background, so KEGS starts without waiting)
 LOG=/kegs/kegs.log
-{
-	echo "=== $(date)  KEGS_ARGS=$KEGS_ARGS AUDIO=$AUDIO"
-	ls -l /dev/dri /kegs 2>&1
-	cat /sys/class/drm/card*-HDMI*/status 2>/dev/null
-} > /kegs/boot-log.txt
-dmesg >> /kegs/boot-log.txt 2>&1
-sync
+(
+	sleep 5
+	{
+		echo "=== $(date)  KEGS_ARGS=$KEGS_ARGS AUDIO=$AUDIO"
+		ls -l /dev/dri /kegs 2>&1
+		cat /sys/class/drm/card*-HDMI*/status 2>/dev/null
+		dmesg
+	} > /kegs/boot-log.txt 2>&1
+	sync
+) &
+
+# KEGS saves its start-up screen here; S00kegs-splash shows it at boot
+export KEGS_SPLASH=/kegs/.kegs-splash
 
 START=$(date +%s)
 # shellcheck disable=SC2086
